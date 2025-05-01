@@ -4,6 +4,7 @@ import os
 import textwrap
 from datetime import datetime
 from api_handler import get_today_data
+from name_info import get_name_info
 
 # Cesty k fontům - upravte podle potřeby
 MONT_FONT_PATHS = {
@@ -55,11 +56,12 @@ def load_montserrat_fonts():
             'date': ImageFont.truetype(MONT_FONT_PATHS['medium'], 48),
             'name': ImageFont.truetype(MONT_FONT_PATHS['bold'], 84),
             'footer': ImageFont.truetype(MONT_FONT_PATHS['regular'], 36),
+            'info': ImageFont.truetype(MONT_FONT_PATHS['regular'], 32)  # Přidán font pro informace
         }
     except Exception as e:
         print(f"Chyba při načítání fontu Montserrat: {e}. Používám výchozí fonty.")
         default_font = ImageFont.load_default()
-        return {k: default_font for k in ['day', 'date', 'name', 'footer']}
+        return {k: default_font for k in ['day', 'date', 'name', 'footer', 'info']}
 
 
 def draw_wrapped_text(draw, text, font, image_width, y_pos, square_size):
@@ -83,6 +85,7 @@ def draw_wrapped_text(draw, text, font, image_width, y_pos, square_size):
 
     return y_pos
 
+
 def draw_texts(image, data, square_area):
     """Vykreslí texty na obrázek s použitím Montserrat fontu"""
     draw = ImageDraw.Draw(image)
@@ -102,17 +105,66 @@ def draw_texts(image, data, square_area):
     draw.text(((image.width - text_width) // 2, date_y), date_text, fill="black", font=fonts['date'])
 
     # 3. Název svátku - velká mezera a pak velký text
-    name_text = data["name"]
+    name_text = "Zikmund"
+
     name_y = date_y + fonts['date'].getbbox(date_text)[3] + 250
     name_y = draw_wrapped_text(draw, name_text, fonts['name'], image.width, name_y, square_size)
 
-    # 4. "@test" - úplně dole
+    # 4. Informace o jméně (pokud jsou dostupné)
+    name_info = get_name_info(name_text)
+    if name_info:
+        # Vytvoříme layout s velkými čísly a popisky pod nimi
+        info_y = name_y + 60
+
+        # Nastavení fontů
+        number_font = ImageFont.truetype(MONT_FONT_PATHS['bold'], 48)
+        label_font = ImageFont.truetype(MONT_FONT_PATHS['regular'], 32)
+
+        # Rozložení do 3 sloupců
+        col_width = square_size // 3
+        center_x = image.width // 2
+        start_x = center_x - col_width
+
+        # 1. sloupec - pořadí
+        rank_text = f"{name_info['rank']}."
+        rank_width = number_font.getlength(rank_text)
+        draw.text((start_x + (col_width - rank_width) // 2, info_y), rank_text, fill="black", font=number_font)
+
+        label_text = "nejčastější"
+        label_width = label_font.getlength(label_text)
+        draw.text((start_x + (col_width - label_width) // 2, info_y + 60), label_text, fill="black", font=label_font)
+
+        # 2. sloupec - počet nositelů
+        count_text = str(name_info['count'])
+        count_width = number_font.getlength(count_text)
+        draw.text((start_x + col_width + (col_width - count_width) // 2, info_y), count_text, fill="black",
+                  font=number_font)
+
+        label_text = "nositelů"
+        label_width = label_font.getlength(label_text)
+        draw.text((start_x + col_width + (col_width - label_width) // 2, info_y + 60), label_text, fill="black",
+                  font=label_font)
+
+        # 3. sloupec - průměrný věk
+        age_text = str(name_info['avg_age'])
+        age_width = number_font.getlength(age_text)
+        draw.text((start_x + 2 * col_width + (col_width - age_width) // 2, info_y), age_text, fill="black",
+                  font=number_font)
+
+        label_text = "průměrný věk"
+        label_width = label_font.getlength(label_text)
+        draw.text((start_x + 2 * col_width + (col_width - label_width) // 2, info_y + 60), label_text, fill="black",
+                  font=label_font)
+    else:
+        print(f"ℹ️ Pro jméno {name_text} nebyly nalezeny žádné informace")
+
+    # 5. "@test" - úplně dole
     footer_text = "@test"
     footer_y = square_y + square_size - 100
     text_width = fonts['footer'].getlength(footer_text)
     draw.text(((image.width - text_width) // 2, footer_y), footer_text, fill="black", font=fonts['footer'])
 
-    
+
 def generate_image():
     """Hlavní funkce pro generování obrázku"""
     width, height = 1080, 1080
