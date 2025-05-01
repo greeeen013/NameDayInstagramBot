@@ -60,3 +60,25 @@ def load_montserrat_fonts():
         print(f"Chyba při načítání fontu Montserrat: {e}. Používám výchozí fonty.")
         default_font = ImageFont.load_default()
         return {k: default_font for k in ['day', 'date', 'name', 'footer']}
+
+
+def draw_wrapped_text(draw, text, font, image_width, y_pos, square_size):
+    """Zalamuje dlouhý text a vykreslí ho na více řádků"""
+    max_width = square_size * 0.9
+    avg_char_width = font.getlength("x")
+    max_chars = int(max_width / avg_char_width)
+
+    if len(text) > max_chars:
+        wrapped_text = textwrap.fill(text, width=max_chars)
+        lines = wrapped_text.split('\n')
+    else:
+        lines = [text]
+
+    line_height = font.getbbox(text)[3] - font.getbbox(text)[1]
+    for line in lines:
+        line_width = font.getlength(line)
+        line_x = (image_width - line_width) // 2
+        draw.text((line_x, y_pos), line, fill="black", font=font)
+        y_pos += line_height + 10
+
+    return y_pos
