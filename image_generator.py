@@ -33,3 +33,15 @@ def generate_gradient_background(width, height):
     return image.convert('RGBA')
 
 
+def create_transparent_square(image, size_ratio=0.9, opacity=0.3):
+    """Vytvoří průhledný čtverec na obrázku"""
+    width, height = image.size
+    square_size = int(min(width, height) * size_ratio)
+
+    alpha = int(255 * opacity)
+    square = Image.new('RGBA', (square_size, square_size), (255, 255, 255, alpha))
+
+    pos = ((width - square_size) // 2, (height - square_size) // 2)
+    image.paste(square, pos, square)
+
+    return pos[0], pos[1], square_size
