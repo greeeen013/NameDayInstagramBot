@@ -45,3 +45,18 @@ def create_transparent_square(image, size_ratio=0.9, opacity=0.3):
     image.paste(square, pos, square)
 
     return pos[0], pos[1], square_size
+
+
+def load_montserrat_fonts():
+    """Načte fonty Montserrat s fallback na výchozí font"""
+    try:
+        return {
+            'day': ImageFont.truetype(MONT_FONT_PATHS['bold'], 72),
+            'date': ImageFont.truetype(MONT_FONT_PATHS['medium'], 48),
+            'name': ImageFont.truetype(MONT_FONT_PATHS['bold'], 84),
+            'footer': ImageFont.truetype(MONT_FONT_PATHS['regular'], 36),
+        }
+    except Exception as e:
+        print(f"Chyba při načítání fontu Montserrat: {e}. Používám výchozí fonty.")
+        default_font = ImageFont.load_default()
+        return {k: default_font for k in ['day', 'date', 'name', 'footer']}
