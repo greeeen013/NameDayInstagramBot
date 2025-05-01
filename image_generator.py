@@ -111,3 +111,24 @@ def draw_texts(image, data, square_area):
     footer_y = square_y + square_size - 100
     text_width = fonts['footer'].getlength(footer_text)
     draw.text(((image.width - text_width) // 2, footer_y), footer_text, fill="black", font=fonts['footer'])
+
+    
+def generate_image():
+    """Hlavní funkce pro generování obrázku"""
+    width, height = 1080, 1080
+    data = get_today_data()
+
+    image = generate_gradient_background(width, height)
+    square_area = create_transparent_square(image, opacity=0.3)
+    draw_texts(image, data, square_area)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{today}.png"
+    image.save(filename, "PNG")
+
+    print(f"Obrázek uložen jako {filename}")
+    return filename
+
+
+if __name__ == "__main__":
+    generate_image()
