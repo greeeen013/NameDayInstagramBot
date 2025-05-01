@@ -82,3 +82,32 @@ def draw_wrapped_text(draw, text, font, image_width, y_pos, square_size):
         y_pos += line_height + 10
 
     return y_pos
+
+def draw_texts(image, data, square_area):
+    """Vykreslí texty na obrázek s použitím Montserrat fontu"""
+    draw = ImageDraw.Draw(image)
+    fonts = load_montserrat_fonts()
+    square_x, square_y, square_size = square_area
+
+    # 1. "Dnes je čtvrtek" - úplně nahoře
+    day_text = f"Dnes je {data['dayInWeek']}"
+    day_y = square_y + 20
+    text_width = fonts['day'].getlength(day_text)
+    draw.text(((image.width - text_width) // 2, day_y), day_text, fill="black", font=fonts['day'])
+
+    # 2. Datum - pod prvním textem
+    date_text = f"{data['dayNumber']}. {data['month']['genitive']} {data['year']}"
+    date_y = day_y + fonts['day'].getbbox(day_text)[3] + 20
+    text_width = fonts['date'].getlength(date_text)
+    draw.text(((image.width - text_width) // 2, date_y), date_text, fill="black", font=fonts['date'])
+
+    # 3. Název svátku - velká mezera a pak velký text
+    name_text = data["name"]
+    name_y = date_y + fonts['date'].getbbox(date_text)[3] + 250
+    name_y = draw_wrapped_text(draw, name_text, fonts['name'], image.width, name_y, square_size)
+
+    # 4. "@test" - úplně dole
+    footer_text = "@test"
+    footer_y = square_y + square_size - 100
+    text_width = fonts['footer'].getlength(footer_text)
+    draw.text(((image.width - text_width) // 2, footer_y), footer_text, fill="black", font=fonts['footer'])
