@@ -159,7 +159,7 @@ def draw_texts(image, data, square_area):
         print(f"ℹ️ Pro jméno {name_text} nebyly nalezeny žádné informace")
 
     # 5. "@test" - úplně dole
-    footer_text = "@test"
+    footer_text = "@svatekazdyden"
     footer_y = square_y + square_size - 100
     text_width = fonts['footer'].getlength(footer_text)
     draw.text(((image.width - text_width) // 2, footer_y), footer_text, fill="black", font=fonts['footer'])
