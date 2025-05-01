@@ -105,7 +105,7 @@ def draw_texts(image, data, square_area):
     draw.text(((image.width - text_width) // 2, date_y), date_text, fill="black", font=fonts['date'])
 
     # 3. Název svátku - velká mezera a pak velký text
-    name_text = "Zikmund"
+    name_text = data['name']
 
     name_y = date_y + fonts['date'].getbbox(date_text)[3] + 250
     name_y = draw_wrapped_text(draw, name_text, fonts['name'], image.width, name_y, square_size)
