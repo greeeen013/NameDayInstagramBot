@@ -10,12 +10,12 @@ dny_cesky = [
 def get_name_info(hledane_jmeno):
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
-    print(f"Hledám svátek pro jméno '{hledane_jmeno}'...")
+    print(f"[name_info] Hledám svátek pro jméno '{hledane_jmeno}'...")
 
     # Načtení stránky se svátky
     res = session.get("https://www.nasejmena.cz/")
     if res.status_code != 200:
-        print("Nepodařilo se načíst stránku se svátky.")
+        print("[name_info] Nepodařilo se načíst stránku se svátky.")
         return None
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -24,7 +24,7 @@ def get_name_info(hledane_jmeno):
     den_nazev = dny_cesky[dnes.weekday()]
     datum = f"{dnes.day}.{dnes.month}.{dnes.year}"
     hledany_radek = f"{den_nazev}\xa0{datum}"  # např. Čtvrtek 1.5.2025
-    print(f"Hledaný řetězec: '{hledany_radek}'")
+    print(f"[name_info] Hledaný řetězec: '{hledany_radek}'")
 
     # Najdi dnešní buňku s datem
     td_dens = soup.find("td", string=hledany_radek)
@@ -33,7 +33,7 @@ def get_name_info(hledane_jmeno):
         alternativni_format = f"{den_nazev}&nbsp;{datum}"
         td_dens = soup.find("td", string=alternativni_format)
         if not td_dens:
-            print("Dnešní datum nebylo nalezeno v kalendáři.")
+            print("[name_info] Dnešní datum nebylo nalezeno v kalendáři.")
             return None
 
     # Procházej další řádky, dokud nenajde jméno nebo nový den
@@ -49,7 +49,7 @@ def get_name_info(hledane_jmeno):
             # Najdeme všechny odkazy v buňce (pro případ více jmen)
             a_tags = obsah_td.find_all("a")
             if not a_tags:
-                print("Dnes nikdo nemá svátek.")
+                print("[name_info] Dnes nikdo nemá svátek.")
                 return None
 
             # Projdeme všechna jména v daný den
@@ -61,19 +61,19 @@ def get_name_info(hledane_jmeno):
                     detail_url = f"https://www.nasejmena.cz/nj/{href}"
                     res = session.get(detail_url)
                     if res.status_code != 200:
-                        print("Nepodařilo se načíst detail jména.")
+                        print("[name_info] Nepodařilo se načíst detail jména.")
                         return None
 
                     soup = BeautifulSoup(res.text, "html.parser")
                     header = soup.find("span", {"class": "hlavicka"})
                     if not header:
-                        print("Nepodařilo se najít informace o jménu.")
+                        print("[name_info] Nepodařilo se najít informace o jménu.")
                         return None
 
                     header_text = header.text
                     cisla = re.findall(r'\d+', header_text)
                     if len(cisla) < 3:
-                        print("Nepodařilo se parsovat statistiky.")
+                        print("[name_info] Nepodařilo se parsovat statistiky.")
                         return None
 
                     # Získání původu jména
@@ -96,11 +96,11 @@ def get_name_info(hledane_jmeno):
                         "avg_age": avg_age,
                         "origin": puvod if puvod else "neuvedeno"
                     }
-                    print(f"Výsledek: {vysledek}")
+                    print(f"[name_info] Výsledek: {vysledek}")
                     return vysledek
 
             # Pokud jsme prošli všechna jména a nenašli jsme hledané
-            print(f"Dnes má svátek {', '.join([a.text.strip() for a in a_tags])}, ale ne '{hledane_jmeno}'.")
+            print(f"[name_info] Dnes má svátek {', '.join([a.text.strip() for a in a_tags])}, ale ne '{hledane_jmeno}'.")
             return None
 
         # Pokud narazíme na další den, končíme
@@ -109,18 +109,18 @@ def get_name_info(hledane_jmeno):
 
         td = td.find_next_sibling("tr")
 
-    print("Dnes nikdo nemá svátek.")
+    print("[name_info] Dnes nikdo nemá svátek.")
     return None
 
 def get_todays_names():
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
-    print("Zjišťuji, kdo má dnes svátek...")
+    print("[name_info] Zjišťuji, kdo má dnes svátek...")
 
     # Načtení stránky se svátky
     res = session.get("https://www.nasejmena.cz/")
     if res.status_code != 200:
-        print("Nepodařilo se načíst stránku se svátky.")
+        print("[name_info] Nepodařilo se načíst stránku se svátky.")
         return None
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -145,7 +145,7 @@ def get_todays_names():
             break
 
     if not td_dens:
-        print("Dnešní datum nebylo nalezeno v kalendáři.")
+        print("[name_info] Dnešní datum nebylo nalezeno v kalendáři.")
         return None
 
     # Procházej další řádky, dokud nenajde jména nebo nový den
@@ -172,10 +172,10 @@ def get_todays_names():
         td = td.find_next_sibling("tr")
 
     if not jmena:
-        print("Dnes nikdo nemá svátek.")
+        print("[name_info] Dnes nikdo nemá svátek.")
         return None
 
-    print(f"Dnes má svátek: {', '.join(jmena)}")
+    print(f"[name_info] Dnes má svátek: {', '.join(jmena)}")
     return jmena
 
 if __name__ == "__main__":
@@ -183,6 +183,6 @@ if __name__ == "__main__":
     jmeno = "Alexej"
     info = get_name_info(jmeno)
     if info:
-        print(f"Jméno: {info['name']}, Počet nositelů: {info['count']}, Pořadí: {info['rank']}, Průměrný věk: {info['avg_age']}")
+        print(f"Jméno: {info['name']}, Počet nositelů: {info['count']}, Pořadí: {info['rank']}, Průměrný věk: {info['avg_age']} půvopd: {info['origin']}")
     else:
         print("Žádné informace nebyly nalezeny.")

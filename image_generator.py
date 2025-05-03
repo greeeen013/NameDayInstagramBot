@@ -83,28 +83,31 @@ def draw_texts(image, name, info):
     months = {1:'ledna',2:'února',3:'března',4:'dubna',5:'května',6:'června',
               7:'července',8:'srpna',9:'září',10:'října',11:'listopadu',12:'prosince'}
 
-    # 1) Název dne jako "Sobota"
+    # Dnešní den a datum
     today = datetime.now()
     day_name = weekdays[today.weekday()]
-    y_weekday = y0 + 20
-    draw_centered(draw, day_name, fonts['weekday_bold'], w/2, y_weekday)
-    wd_height = fonts['weekday_bold'].getbbox(day_name)[3] - fonts['weekday_bold'].getbbox(day_name)[1]
-
-    # 2) Datum pod dnem
     date_txt = f"{today.day}. {months[today.month]}"
-    y_date = y_weekday + wd_height + 40
-    draw_centered(draw, date_txt, fonts['date'], w/2, y_date)
-    dt_height = fonts['date'].getbbox(date_txt)[3] - fonts['date'].getbbox(date_txt)[1]
 
-    # 3) Jméno svátku uprostřed boxu
-    y_name = y_date + dt_height + 140
-    draw_centered(draw, name, fonts['name'], w/2, y_name)
-    nm_height = fonts['name'].getbbox(name)[3] - fonts['name'].getbbox(name)[1]
+    # 📏 Výška řádku – overlay rozdělíme do 8 zón
+    line_height = sq // 8
+    center_x = w // 2
 
-    # 4) Statistiky
-    stats_y = y_name + nm_height + 100
+    # 1) Den v týdnu
+    y_weekday = y0 + line_height * 0 + 20
+    draw_centered(draw, day_name, fonts['weekday_bold'], center_x, y_weekday)
+
+    # 2) Datum
+    y_date = y0 + line_height * 1
+    draw_centered(draw, date_txt, fonts['date'], center_x, y_date)
+
+    # 3) Jméno
+    y_name = y0 + line_height * 2 + 60
+    draw_centered(draw, name, fonts['name'], center_x, y_name)
+
+    # 4) Statistiky (hodnoty + popisky)
+    stats_y = y0 + line_height * 4 + 80
     col_w = sq / 3
-    base_x = w/2 - sq/2
+    base_x = center_x - sq/2
     stats_vals = [info.get('rank'), info.get('count'), info.get('avg_age')]
     stats_lbls = ['nejčastější','nositelů','ø věk']
     for i, (val, lbl) in enumerate(zip(stats_vals, stats_lbls)):
@@ -114,13 +117,13 @@ def draw_texts(image, name, info):
         draw_centered(draw, lbl, fonts['stats_lbl'], x, stats_y + 80)
 
     # 5) Původ jména
+    y_orig = y0 + line_height * 6 + 10
     origin_txt = f"původ: {info.get('origin','–')}"
-    y_orig = stats_y + 170
-    draw_centered(draw, origin_txt, fonts['origin'], w/2, y_orig)
+    draw_centered(draw, origin_txt, fonts['origin'], center_x, y_orig)
 
-    # 6) Footer uvnitř boxu, 2 px nad spodní hranou
-    y_footer = y0 + sq - 40 - 10
-    draw_centered(draw, '@svatekazdyden', fonts['footer'], w/2, y_footer)
+    # 6) Footer
+    y_footer = y0 + sq - 50
+    draw_centered(draw, '@svatekazdyden', fonts['footer'], center_x, y_footer)
 
 #----------------------------------------
 # Generování obrázku pro jedno jméno

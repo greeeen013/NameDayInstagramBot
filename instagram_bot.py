@@ -37,7 +37,9 @@ def post_album_to_instagram(image_paths, description):
     Přihlásí se a nahraje album na Instagram.
     Všechny obrázky převede na JPEG formát s rozměrem 1080x1080.
     """
-    login()
+    if has_posted_today():
+        print("❌ [instagra_bot] Dnes už bylo něco nahráno.")
+        return
 
     converted_paths = []
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -53,6 +55,7 @@ def post_album_to_instagram(image_paths, description):
 
         # Nahrání převedených obrázků jako album
         cl.album_upload(converted_paths, description)
+        print("✔️ [instagra_bot] Album úspěšně nahráno!")
 
 
 if __name__ == "__main__":
