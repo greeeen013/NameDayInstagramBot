@@ -1,29 +1,26 @@
-from PIL import Image, ImageDraw, ImageFont
 import random
-import os
 import textwrap
 from datetime import datetime
-from api_handler import get_today_data
-from name_info import get_name_info, get_todays_names
+from PIL import Image, ImageDraw, ImageFont
 
-# Cesty k fontům - upravte podle potřeby
+# import funkcí pro získání dnešních jmen a informací o jménu
+from name_info import get_todays_names, get_name_info
+
+# Cesty k fontům Montserrat
 MONT_FONT_PATHS = {
     'regular': 'Montserrat-Regular.ttf',
-    'bold': 'Montserrat-Bold.ttf',
-    'medium': 'Montserrat-Medium.ttf',
-    'italic': 'Montserrat-Italic.ttf'
+    'bold':    'Montserrat-Bold.ttf',
+    'medium':  'Montserrat-Medium.ttf',
+    'italic':  'Montserrat-Italic.ttf'
 }
 
-
+#----------------------------------------
+# Generuje diagonální gradientní pozadí
+#----------------------------------------
 def generate_gradient_background(width, height):
-    """Generuje diagonální gradientní pozadí z náhodných barev"""
     image = Image.new('RGB', (width, height))
-
-    # Náhodné barvy pro gradient
-    color1 = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    color2 = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-
-    # Diagonální gradient
+    color1 = tuple(random.randint(0, 255) for _ in range(3))
+    color2 = tuple(random.randint(0, 255) for _ in range(3))
     for y in range(height):
         for x in range(width):
             ratio = (x + y) / (width + height)
@@ -31,190 +28,121 @@ def generate_gradient_background(width, height):
             g = int(color1[1] + (color2[1] - color1[1]) * ratio)
             b = int(color1[2] + (color2[2] - color1[2]) * ratio)
             image.putpixel((x, y), (r, g, b))
-
     return image.convert('RGBA')
 
+#----------------------------------------
+# Vytvoří průhledný čtverec (overlay) uprostřed
+# padding 0.1 znamená box 90% velikosti
+#----------------------------------------
+def create_overlay_square(image, padding=0.1, opacity=0.25):
+    w, h = image.size
+    size = int(min(w, h) * (1 - padding))
+    overlay = Image.new('RGBA', (size, size), (255, 255, 255, int(255 * opacity)))
+    x = (w - size) // 2
+    y = (h - size) // 2
+    image.paste(overlay, (x, y), overlay)
+    return x, y, size
 
-def create_transparent_square(image, size_ratio=0.9, opacity=0.3):
-    """Vytvoří průhledný čtverec na obrázku"""
-    width, height = image.size
-    square_size = int(min(width, height) * size_ratio)
-
-    alpha = int(255 * opacity)
-    square = Image.new('RGBA', (square_size, square_size), (255, 255, 255, alpha))
-
-    pos = ((width - square_size) // 2, (height - square_size) // 2)
-    image.paste(square, pos, square)
-
-    return pos[0], pos[1], square_size
-
-
-def load_montserrat_fonts():
-    """Načte fonty Montserrat s fallback na výchozí font"""
+#----------------------------------------
+# Načte fonty Montserrat s fallback
+#----------------------------------------
+def load_fonts():
     try:
         return {
-            'day': ImageFont.truetype(MONT_FONT_PATHS['bold'], 72),
-            'date': ImageFont.truetype(MONT_FONT_PATHS['medium'], 48),
-            'name': ImageFont.truetype(MONT_FONT_PATHS['bold'], 84),
-            'footer': ImageFont.truetype(MONT_FONT_PATHS['regular'], 36),
-            'info': ImageFont.truetype(MONT_FONT_PATHS['regular'], 32)  # Přidán font pro informace
+            'weekday_bold': ImageFont.truetype(MONT_FONT_PATHS['bold'],   80),
+            'date':         ImageFont.truetype(MONT_FONT_PATHS['medium'], 60),
+            'name':         ImageFont.truetype(MONT_FONT_PATHS['bold'],   150),
+            'stats_num':    ImageFont.truetype(MONT_FONT_PATHS['bold'],    80),
+            'stats_lbl':    ImageFont.truetype(MONT_FONT_PATHS['regular'], 45),
+            'origin':       ImageFont.truetype(MONT_FONT_PATHS['italic'],  48),
+            'footer':       ImageFont.truetype(MONT_FONT_PATHS['regular'], 42)
         }
-    except Exception as e:
-        print(f"Chyba při načítání fontu Montserrat: {e}. Používám výchozí fonty.")
-        default_font = ImageFont.load_default()
-        return {k: default_font for k in ['day', 'date', 'name', 'footer', 'info']}
+    except IOError:
+        print("⚠️ Nepodařilo se načíst fonty, používám výchozí.")
+        default = ImageFont.load_default()
+        return {k: default for k in ['weekday_bold','date','name','stats_num','stats_lbl','origin','footer']}
 
+#----------------------------------------
+# Pomocná funkce pro centrované vykreslení textu
+#----------------------------------------
+def draw_centered(draw, text, font, x_center, y):
+    width = font.getlength(text)
+    draw.text((x_center - width/2, y), text, font=font, fill='black')
 
-def draw_wrapped_text(draw, text, font, image_width, y_pos, square_size):
-    """Zalamuje dlouhý text a vykreslí ho na více řádků"""
-    max_width = square_size * 0.9
-    avg_char_width = font.getlength("x")
-    max_chars = int(max_width / avg_char_width)
-
-    if len(text) > max_chars:
-        wrapped_text = textwrap.fill(text, width=max_chars)
-        lines = wrapped_text.split('\n')
-    else:
-        lines = [text]
-
-    line_height = font.getbbox(text)[3] - font.getbbox(text)[1]
-    for line in lines:
-        line_width = font.getlength(line)
-        line_x = (image_width - line_width) // 2
-        draw.text((line_x, y_pos), line, fill="black", font=font)
-        y_pos += line_height + 10
-
-    return y_pos
-
-
-def draw_texts(image, data, square_area):
-    """Vykreslí texty na obrázek s použitím Montserrat fontu"""
+#----------------------------------------
+# Vykreslí texty: den, datum, jméno, statistiky, původ, footer
+#----------------------------------------
+def draw_texts(image, name, info):
     draw = ImageDraw.Draw(image)
-    fonts = load_montserrat_fonts()
-    square_x, square_y, square_size = square_area
+    fonts = load_fonts()
+    w, h = image.size
+    x0, y0, sq = create_overlay_square(image)
 
-    # Get current date info
-    now = datetime.now()
-    dny_cesky = ["Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota", "Neděle"]
-    mesice = {
-        1: {"genitive": "ledna"},
-        2: {"genitive": "února"},
-        3: {"genitive": "března"},
-        4: {"genitive": "dubna"},
-        5: {"genitive": "května"},
-        6: {"genitive": "června"},
-        7: {"genitive": "července"},
-        8: {"genitive": "srpna"},
-        9: {"genitive": "září"},
-        10: {"genitive": "října"},
-        11: {"genitive": "listopadu"},
-        12: {"genitive": "prosince"}
-    }
+    # Dny a měsíce
+    weekdays = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota','Neděle']
+    months = {1:'ledna',2:'února',3:'března',4:'dubna',5:'května',6:'června',
+              7:'července',8:'srpna',9:'září',10:'října',11:'listopadu',12:'prosince'}
 
-    # 1. "Dnes je čtvrtek" - úplně nahoře
-    day_text = f"Dnes je {dny_cesky[now.weekday()]}"
-    day_y = square_y + 20
-    text_width = fonts['day'].getlength(day_text)
-    draw.text(((image.width - text_width) // 2, day_y), day_text, fill="black", font=fonts['day'])
+    # 1) Název dne jako "Sobota"
+    today = datetime.now()
+    day_name = weekdays[today.weekday()]
+    y_weekday = y0 + 20
+    draw_centered(draw, day_name, fonts['weekday_bold'], w/2, y_weekday)
+    wd_height = fonts['weekday_bold'].getbbox(day_name)[3] - fonts['weekday_bold'].getbbox(day_name)[1]
 
-    # 2. Datum - pod prvním textem
-    date_text = f"{now.day}. {mesice[now.month]['genitive']} {now.year}"
-    date_y = day_y + fonts['day'].getbbox(day_text)[3] + 20
-    text_width = fonts['date'].getlength(date_text)
-    draw.text(((image.width - text_width) // 2, date_y), date_text, fill="black", font=fonts['date'])
+    # 2) Datum pod dnem
+    date_txt = f"{today.day}. {months[today.month]}"
+    y_date = y_weekday + wd_height + 40
+    draw_centered(draw, date_txt, fonts['date'], w/2, y_date)
+    dt_height = fonts['date'].getbbox(date_txt)[3] - fonts['date'].getbbox(date_txt)[1]
 
-    # 3. Název svátku - velká mezera a pak velký text
-    name_text = data[0] if isinstance(data, list) else data  # Handle both list and single name
-    name_y = date_y + fonts['date'].getbbox(date_text)[3] + 250
-    name_y = draw_wrapped_text(draw, name_text, fonts['name'], image.width, name_y, square_size)
+    # 3) Jméno svátku uprostřed boxu
+    y_name = y_date + dt_height + 140
+    draw_centered(draw, name, fonts['name'], w/2, y_name)
+    nm_height = fonts['name'].getbbox(name)[3] - fonts['name'].getbbox(name)[1]
 
-    # 4. Informace o jméně (pokud jsou dostupné)
-    name_info = get_name_info(name_text)
-    if name_info:
-        # Vytvoříme layout s origin pod jménem a statistikami níže
-        name_font = ImageFont.truetype(MONT_FONT_PATHS['bold'], 48)
-        origin_font = ImageFont.truetype(MONT_FONT_PATHS['italic'], 32)
-        number_font = ImageFont.truetype(MONT_FONT_PATHS['bold'], 48)
-        label_font = ImageFont.truetype(MONT_FONT_PATHS['regular'], 32)
+    # 4) Statistiky
+    stats_y = y_name + nm_height + 100
+    col_w = sq / 3
+    base_x = w/2 - sq/2
+    stats_vals = [info.get('rank'), info.get('count'), info.get('avg_age')]
+    stats_lbls = ['nejčastější','nositelů','ø věk']
+    for i, (val, lbl) in enumerate(zip(stats_vals, stats_lbls)):
+        x = base_x + col_w*i + col_w/2
+        txt_val = f"{val}." if i == 0 else str(val)
+        draw_centered(draw, txt_val, fonts['stats_num'], x, stats_y)
+        draw_centered(draw, lbl, fonts['stats_lbl'], x, stats_y + 80)
 
-        # Vykreslení jména
-        name_width = name_font.getlength(name_text)
-        draw.text(((image.width - name_width) // 2, name_y), name_text, fill="black", font=name_font)
+    # 5) Původ jména
+    origin_txt = f"původ: {info.get('origin','–')}"
+    y_orig = stats_y + 170
+    draw_centered(draw, origin_txt, fonts['origin'], w/2, y_orig)
 
-        # Vykreslení původu pod jménem
-        origin_text = f"původ: {name_info['origin']}"
-        origin_width = origin_font.getlength(origin_text)
-        draw.text(((image.width - origin_width) // 2, name_y + 60), origin_text, fill="black", font=origin_font)
-        stats_y = name_y + 120  # Posuneme statistiky níže kvůli původu
+    # 6) Footer uvnitř boxu, 2 px nad spodní hranou
+    y_footer = y0 + sq - 40 - 10
+    draw_centered(draw, '@svatekazdyden', fonts['footer'], w/2, y_footer)
 
-        # Rozložení statistik do 3 sloupců
-        col_width = square_size // 3
-        center_x = image.width // 2
-        start_x = center_x - col_width
+#----------------------------------------
+# Generování obrázku pro jedno jméno
+#----------------------------------------
+def generate_image_for(name, info):
+    img = generate_gradient_background(1080, 1080)
+    draw_texts(img, name, info)
+    filename = f"{datetime.now().strftime('%Y-%m-%d')}_{name}.png"
+    img.save(filename)
+    return filename
 
-        # 1. sloupec - pořadí
-        rank_text = f"{name_info['rank']}."
-        rank_width = number_font.getlength(rank_text)
-        draw.text((start_x + (col_width - rank_width) // 2, stats_y), rank_text, fill="black", font=number_font)
-
-        label_text = "nejčastější"
-        label_width = label_font.getlength(label_text)
-        draw.text((start_x + (col_width - label_width) // 2, stats_y + 60), label_text, fill="black", font=label_font)
-
-        # 2. sloupec - počet nositelů
-        count_text = str(name_info['count'])
-        count_width = number_font.getlength(count_text)
-        draw.text((start_x + col_width + (col_width - count_width) // 2, stats_y), count_text, fill="black",
-                  font=number_font)
-
-        label_text = "nositelů"
-        label_width = label_font.getlength(label_text)
-        draw.text((start_x + col_width + (col_width - label_width) // 2, stats_y + 60), label_text, fill="black",
-                  font=label_font)
-
-        # 3. sloupec - průměrný věk
-        age_text = str(name_info['avg_age'])
-        age_width = number_font.getlength(age_text)
-        draw.text((start_x + 2 * col_width + (col_width - age_width) // 2, stats_y), age_text, fill="black",
-                  font=number_font)
-
-        label_text = "průměrný věk"
-        label_width = label_font.getlength(label_text)
-        draw.text((start_x + 2 * col_width + (col_width - label_width) // 2, stats_y + 60), label_text, fill="black",
-                  font=label_font)
-    else:
-        print(f"ℹ️ Pro jméno {name_text} nebyly nalezeny žádné informace")
-
-    # 5. "@test" - úplně dole
-    footer_text = "@svatekazdyden"
-    footer_y = square_y + square_size - 100
-    text_width = fonts['footer'].getlength(footer_text)
-    draw.text(((image.width - text_width) // 2, footer_y), footer_text, fill="black", font=fonts['footer'])
-
-
-def generate_image():
-    """Hlavní funkce pro generování obrázku"""
-    width, height = 1080, 1080
-    #data = get_today_data()
-    data = get_todays_names()
-    if not data:
-        print("Žádná data k zobrazení.")
-        return
-
-    created_files = []  # Seznam pro ukládání názvů souborů
-    for name in data:
-        print(f"Získaná jména: {name}")
-        image = generate_gradient_background(width, height)
-        square_area = create_transparent_square(image, opacity=0.3)
-        draw_texts(image, data, square_area)
-        today = datetime.now().strftime("%Y-%m-%d")
-        filename = f"{today}{name}.png"
-        created_files.append(filename)
-        image.save(filename, "PNG")
-        print(f"Obrázek uložen jako {filename}")
-
-    return created_files
-
-
-if __name__ == "__main__":
-    generate_image()
+#----------------------------------------
+# Hlavní blok: načtení jmen a generování obrázků
+#----------------------------------------
+if __name__ == '__main__':
+    print("🍀 Získávám dnešní sváteční jména...")
+    names = get_todays_names()
+    if not names:
+        print("ℹ️ Dnes žádné sváteční jméno.")
+    for name in names:
+        print(f"🔄 Generuji obrázek pro: {name}")
+        info = get_name_info(name)
+        print(f"   ✅ Počet: {info['count']}, pořadí: {info['rank']}, průměrný věk: {info['avg_age']}, původ: {info.get('origin','–')}")
+        out = generate_image_for(name, info)
+        print(f"🌟 Obrázek uložen: {out}\n")

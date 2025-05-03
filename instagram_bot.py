@@ -1,7 +1,11 @@
+import tempfile
+from PIL import Image
+
 from instagrapi import Client
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 load_dotenv()
 
@@ -28,27 +32,27 @@ def has_posted_today():
             return True
     return False
 
-def post_to_instagram(image_path, description):
-    if has_posted_today():
-        print("Dnes už byl příspěvek přidán, nepřidávám další.")
-        return
-
-    cl.photo_upload(image_path, caption=description)
-    print(f"Uploaded {image_path} to Instagram with caption: {description}")
-
 def post_album_to_instagram(image_paths, description):
-    if has_posted_today():
-        print("Dnes už byl příspěvek přidán, nepřidávám další.")
-        return
+    """
+    Přihlásí se a nahraje album na Instagram.
+    Všechny obrázky převede na JPEG formát s rozměrem 1080x1080.
+    """
+    login()
 
-    if len(image_paths) == 1:
-        # Pokud je jen jeden obrázek, použijeme klasický upload
-        cl.photo_upload(image_paths[0], caption=description)
-    else:
-        # Pro více obrázků vytvoříme album
-        cl.album_upload(image_paths, caption=description)
+    converted_paths = []
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        for i, img_path in enumerate(image_paths):
+            # Otevření původního obrázku
+            img = Image.open(img_path).convert("RGB")
+            # Úprava velikosti na 1080x1080 (čtverec, doporučeno pro IG)
+            img = img.resize((1080, 1080))
+            # Uložení dočasného JPEG souboru
+            output_path = Path(tmpdirname) / f"converted_{i}.jpg"
+            img.save(output_path, "JPEG", quality=95)
+            converted_paths.append(output_path)
 
-    print(f"Uploadováno {len(image_paths)} obrázků na Instagram s popisem: {description}")
+        # Nahrání převedených obrázků jako album
+        cl.album_upload(converted_paths, description)
 
 
 if __name__ == "__main__":
