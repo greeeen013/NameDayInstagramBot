@@ -4,13 +4,14 @@ import os
 import textwrap
 from datetime import datetime
 from api_handler import get_today_data
-from name_info import get_name_info
+from name_info import get_name_info, get_todays_names
 
 # Cesty k fontům - upravte podle potřeby
 MONT_FONT_PATHS = {
     'regular': 'Montserrat-Regular.ttf',
     'bold': 'Montserrat-Bold.ttf',
-    'medium': 'Montserrat-Medium.ttf'
+    'medium': 'Montserrat-Medium.ttf',
+    'italic': 'Montserrat-Italic.ttf'
 }
 
 
@@ -92,35 +93,61 @@ def draw_texts(image, data, square_area):
     fonts = load_montserrat_fonts()
     square_x, square_y, square_size = square_area
 
+    # Get current date info
+    now = datetime.now()
+    dny_cesky = ["Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota", "Neděle"]
+    mesice = {
+        1: {"genitive": "ledna"},
+        2: {"genitive": "února"},
+        3: {"genitive": "března"},
+        4: {"genitive": "dubna"},
+        5: {"genitive": "května"},
+        6: {"genitive": "června"},
+        7: {"genitive": "července"},
+        8: {"genitive": "srpna"},
+        9: {"genitive": "září"},
+        10: {"genitive": "října"},
+        11: {"genitive": "listopadu"},
+        12: {"genitive": "prosince"}
+    }
+
     # 1. "Dnes je čtvrtek" - úplně nahoře
-    day_text = f"Dnes je {data['dayInWeek']}"
+    day_text = f"Dnes je {dny_cesky[now.weekday()]}"
     day_y = square_y + 20
     text_width = fonts['day'].getlength(day_text)
     draw.text(((image.width - text_width) // 2, day_y), day_text, fill="black", font=fonts['day'])
 
     # 2. Datum - pod prvním textem
-    date_text = f"{data['dayNumber']}. {data['month']['genitive']} {data['year']}"
+    date_text = f"{now.day}. {mesice[now.month]['genitive']} {now.year}"
     date_y = day_y + fonts['day'].getbbox(day_text)[3] + 20
     text_width = fonts['date'].getlength(date_text)
     draw.text(((image.width - text_width) // 2, date_y), date_text, fill="black", font=fonts['date'])
 
     # 3. Název svátku - velká mezera a pak velký text
-    name_text = data['name']
-
+    name_text = data[0] if isinstance(data, list) else data  # Handle both list and single name
     name_y = date_y + fonts['date'].getbbox(date_text)[3] + 250
     name_y = draw_wrapped_text(draw, name_text, fonts['name'], image.width, name_y, square_size)
 
     # 4. Informace o jméně (pokud jsou dostupné)
     name_info = get_name_info(name_text)
     if name_info:
-        # Vytvoříme layout s velkými čísly a popisky pod nimi
-        info_y = name_y + 60
-
-        # Nastavení fontů
+        # Vytvoříme layout s origin pod jménem a statistikami níže
+        name_font = ImageFont.truetype(MONT_FONT_PATHS['bold'], 48)
+        origin_font = ImageFont.truetype(MONT_FONT_PATHS['italic'], 32)
         number_font = ImageFont.truetype(MONT_FONT_PATHS['bold'], 48)
         label_font = ImageFont.truetype(MONT_FONT_PATHS['regular'], 32)
 
-        # Rozložení do 3 sloupců
+        # Vykreslení jména
+        name_width = name_font.getlength(name_text)
+        draw.text(((image.width - name_width) // 2, name_y), name_text, fill="black", font=name_font)
+
+        # Vykreslení původu pod jménem
+        origin_text = f"původ: {name_info['origin']}"
+        origin_width = origin_font.getlength(origin_text)
+        draw.text(((image.width - origin_width) // 2, name_y + 60), origin_text, fill="black", font=origin_font)
+        stats_y = name_y + 120  # Posuneme statistiky níže kvůli původu
+
+        # Rozložení statistik do 3 sloupců
         col_width = square_size // 3
         center_x = image.width // 2
         start_x = center_x - col_width
@@ -128,32 +155,32 @@ def draw_texts(image, data, square_area):
         # 1. sloupec - pořadí
         rank_text = f"{name_info['rank']}."
         rank_width = number_font.getlength(rank_text)
-        draw.text((start_x + (col_width - rank_width) // 2, info_y), rank_text, fill="black", font=number_font)
+        draw.text((start_x + (col_width - rank_width) // 2, stats_y), rank_text, fill="black", font=number_font)
 
         label_text = "nejčastější"
         label_width = label_font.getlength(label_text)
-        draw.text((start_x + (col_width - label_width) // 2, info_y + 60), label_text, fill="black", font=label_font)
+        draw.text((start_x + (col_width - label_width) // 2, stats_y + 60), label_text, fill="black", font=label_font)
 
         # 2. sloupec - počet nositelů
         count_text = str(name_info['count'])
         count_width = number_font.getlength(count_text)
-        draw.text((start_x + col_width + (col_width - count_width) // 2, info_y), count_text, fill="black",
+        draw.text((start_x + col_width + (col_width - count_width) // 2, stats_y), count_text, fill="black",
                   font=number_font)
 
         label_text = "nositelů"
         label_width = label_font.getlength(label_text)
-        draw.text((start_x + col_width + (col_width - label_width) // 2, info_y + 60), label_text, fill="black",
+        draw.text((start_x + col_width + (col_width - label_width) // 2, stats_y + 60), label_text, fill="black",
                   font=label_font)
 
         # 3. sloupec - průměrný věk
         age_text = str(name_info['avg_age'])
         age_width = number_font.getlength(age_text)
-        draw.text((start_x + 2 * col_width + (col_width - age_width) // 2, info_y), age_text, fill="black",
+        draw.text((start_x + 2 * col_width + (col_width - age_width) // 2, stats_y), age_text, fill="black",
                   font=number_font)
 
         label_text = "průměrný věk"
         label_width = label_font.getlength(label_text)
-        draw.text((start_x + 2 * col_width + (col_width - label_width) // 2, info_y + 60), label_text, fill="black",
+        draw.text((start_x + 2 * col_width + (col_width - label_width) // 2, stats_y + 60), label_text, fill="black",
                   font=label_font)
     else:
         print(f"ℹ️ Pro jméno {name_text} nebyly nalezeny žádné informace")
@@ -168,18 +195,25 @@ def draw_texts(image, data, square_area):
 def generate_image():
     """Hlavní funkce pro generování obrázku"""
     width, height = 1080, 1080
-    data = get_today_data()
+    #data = get_today_data()
+    data = get_todays_names()
+    if not data:
+        print("Žádná data k zobrazení.")
+        return
 
-    image = generate_gradient_background(width, height)
-    square_area = create_transparent_square(image, opacity=0.3)
-    draw_texts(image, data, square_area)
+    created_files = []  # Seznam pro ukládání názvů souborů
+    for name in data:
+        print(f"Získaná jména: {name}")
+        image = generate_gradient_background(width, height)
+        square_area = create_transparent_square(image, opacity=0.3)
+        draw_texts(image, data, square_area)
+        today = datetime.now().strftime("%Y-%m-%d")
+        filename = f"{today}{name}.png"
+        created_files.append(filename)
+        image.save(filename, "PNG")
+        print(f"Obrázek uložen jako {filename}")
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{today}.png"
-    image.save(filename, "PNG")
-
-    print(f"Obrázek uložen jako {filename}")
-    return filename
+    return created_files
 
 
 if __name__ == "__main__":
