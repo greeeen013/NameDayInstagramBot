@@ -2,16 +2,20 @@ import random
 import textwrap
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
+import os
 
 # import funkcí pro získání dnešních jmen a informací o jménu
 from name_info import get_todays_names, get_name_info
 
+# Zjistí cestu k adresáři, kde je tento skript
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Cesty k fontům Montserrat
 MONT_FONT_PATHS = {
-    'regular': 'Montserrat-Regular.ttf',
-    'bold':    'Montserrat-Bold.ttf',
-    'medium':  'Montserrat-Medium.ttf',
-    'italic':  'Montserrat-Italic.ttf'
+    'regular': os.path.join(BASE_DIR, 'Montserrat-Regular.ttf'),
+    'bold':    os.path.join(BASE_DIR, 'Montserrat-Bold.ttf'),
+    'medium':  os.path.join(BASE_DIR, 'Montserrat-Medium.ttf'),
+    'italic':  os.path.join(BASE_DIR, 'Montserrat-Italic.ttf')
 }
 
 #----------------------------------------
@@ -57,8 +61,8 @@ def load_fonts():
             'origin':       ImageFont.truetype(MONT_FONT_PATHS['italic'],  48),
             'footer':       ImageFont.truetype(MONT_FONT_PATHS['regular'], 42)
         }
-    except IOError:
-        print("⚠️ Nepodařilo se načíst fonty, používám výchozí.")
+    except IOError as e:
+        print(f"⚠️ Nepodařilo se načíst fonty, používám výchozí. chyba: {e}")
         default = ImageFont.load_default()
         return {k: default for k in ['weekday_bold','date','name','stats_num','stats_lbl','origin','footer']}
 
@@ -132,6 +136,7 @@ def generate_image_for(name, info):
     img = generate_gradient_background(1080, 1080)
     draw_texts(img, name, info)
     filename = f"{datetime.now().strftime('%Y-%m-%d')}_{name}.png"
+    print(os.path.abspath(filename))
     img.save(filename)
     return filename
 
