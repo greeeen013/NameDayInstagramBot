@@ -27,9 +27,10 @@ def main():
     print("🔄 [main] Generuji AI popis pro Instagram...")
     info = get_name_info(names[0])
     prompt = (
-        f"Napiš kreativní, vtipný a energický popisek na Instagram v češtině, který oslavuje svátek jmen uvedených v seznamu: {name}. "
-        f"Všechna jména jsou česká a mužská – i když některá mohou znít mezinárodně (např. Alex). "
-        f"(V textu použij jejich tvary ve 2. pádě – NA TO POZOR!, např. 'Alexeje a Alexe'). "
+        f"Napiš kreativní, vtipný a energický popisek na Instagram v češtině, který oslavuje svátek těchto jmen: {names}. "
+        f"POZOR – pokud je jméno jen jedno, piš výhradně v jednotném čísle ('Oslava svátku pro Květoslava je tady!'), "
+        f"pokud je jmen víc, piš v množném čísle ('Oslava svátku pro Alexeje a Květoslava je tady!'). "
+        f"Jména spoj správně ve 2. pádě, nesmí se opakovat ani být v nominativu. "
         f"Začni hlavní větou stylu: 🎉 Oslava svátku pro Alexeje a Alexe je tady! 🎉 – nebo podobně výraznou oslavnou větou s emojis. "
         f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům – mluv ke jménům jako k osobnostem, ne k lidem. "
         f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin']} a formuluj to s nadsázkou."
@@ -47,12 +48,8 @@ def main():
     else:
         ai_response = "Dnes má svátek " +{names}+"."
         print("Failed to generate description")
-    description = ai_response+(f"\n\n."
-                                  f"."
-                                  f"."
-                                  f"."
-                                  f"."
-                                  f"informace jsou z: nasejmena.cz"
+    description = ai_response+(f"\n\n\n."
+                                  f"informace jsou z: czso.cz a nasejmena.cz\n"
                                   f"#DnesMáSvátek #SvátekDnes #KdoMáDnesSvátek #SvátečníDen #Jmeniny #DenníSvátek #SvátekKaždýDen #ČeskéJmeniny #SvátekVČesku #DnesSlaví #KaždýDen #DenníPost #Zajímavosti #PůvodJména #JménoDne #JmennéZajímavosti #PoznejJména"
                                   f"#českýinstagram #postdne #inspirace #czsk #czechinstagram #dnes")
     print("🚀 [main] Odesílám album na Instagram...")
