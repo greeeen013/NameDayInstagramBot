@@ -34,28 +34,33 @@ def has_posted_today():
 
 def post_album_to_instagram(image_paths, description):
     """
-    Přihlásí se a nahraje album na Instagram.
+    Přihlásí se a nahraje album nebo jeden obrázek na Instagram.
     Všechny obrázky převede na JPEG formát s rozměrem 1080x1080.
     """
     if has_posted_today():
         print("❌ [instagra_bot] Dnes už bylo něco nahráno.")
         return
 
+    # Pokud image_paths není seznam (např. je to jen string), převedeme na seznam
+    if isinstance(image_paths, (str, Path)):
+        image_paths = [image_paths]
+
     converted_paths = []
     with tempfile.TemporaryDirectory() as tmpdirname:
         for i, img_path in enumerate(image_paths):
-            # Otevření původního obrázku
             img = Image.open(img_path).convert("RGB")
-            # Úprava velikosti na 1080x1080 (čtverec, doporučeno pro IG)
             img = img.resize((1080, 1080))
-            # Uložení dočasného JPEG souboru
             output_path = Path(tmpdirname) / f"converted_{i}.jpg"
             img.save(output_path, "JPEG", quality=95)
             converted_paths.append(output_path)
 
-        # Nahrání převedených obrázků jako album
-        cl.album_upload(converted_paths, description)
-        print("✔️ [instagra_bot] Album úspěšně nahráno!")
+        # Pokud je jen jeden obrázek, použij single upload
+        if len(converted_paths) == 1:
+            cl.photo_upload(converted_paths[0], caption=description)
+            print("✔️ [instagra_bot] Fotka úspěšně nahrána!")
+        else:
+            cl.album_upload(converted_paths, caption=description)
+            print("✔️ [instagra_bot] Album úspěšně nahráno!")
 
 
 if __name__ == "__main__":
