@@ -144,7 +144,7 @@ def generate_image_for(name, info):
     # Vytvoření cesty k souboru
     filepath = os.path.join(output_dir, filename)
 
-    print(os.path.abspath(filepath))
+    print("✅ [image_generator] Soubor byl uložen do:"+os.path.abspath(filepath))
     img.save(filepath)
     return filepath
 

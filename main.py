@@ -102,7 +102,6 @@ def main():
         f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům – mluv ke jménům jako k osobnostem, ne k lidem. "
         f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin']} a formuluj to s nadsázkou."
         f"Na čtvrtý řádek přidej odlehčenou zmínku o známých nebo historických nositelích těchto jmen – zmiň že se jedná o historická jména."
-        f"Na pátý řádek přidej co se dnes slaví za den jako třeba den koček nebo den bez mobilu, nebo něco podobného. "
         f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého TY JMENA (ve 2. pádě), tak ho označte do komentářů a popřejte jim/nebo mu pokud se jedna o jedno jmeno! 🎂'. "
         f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis a piš jako popisek na sociální sítě. Nepřej konkrétním osobám, ale těm jménům samotným. "
         f"Text musí být poutavý, zábavný, stylový – žádná suchá fakta, ale lehká forma infotainmentu. "
@@ -110,17 +109,17 @@ def main():
 
     ai_response = generate_with_openrouter(prompt)
     if ai_response:
-        print("Generated description:")
+        print("✅ [main] Vygenerovaný AI popis:")
         print(ai_response)
     else:
         ai_response = "Dnes má svátek " +{names}+"."
-        print("Failed to generate description")
+        print("❌ [main] Nepodařilo se vygenerovat AI popis. Používám výchozí text.")
     description = ai_response+(f"\n\n\n."
                                   f"informace jsou z: czso.cz a nasejmena.cz\n"
                                   f"#DnesMáSvátek #SvátekDnes #KdoMáDnesSvátek #SvátečníDen #Jmeniny #DenníSvátek #SvátekKaždýDen #ČeskéJmeniny #SvátekVČesku #DnesSlaví #KaždýDen #DenníPost #Zajímavosti #PůvodJména #JménoDne #JmennéZajímavosti #PoznejJména"
                                   f"#českýinstagram #postdne #inspirace #czsk #czechinstagram #dnes")
-    print("🚀 [main] Odesílám album na Instagram...")
-    print(image_paths)
+    print("🚀 [main] Odesílám toto album na Instagram:..")
+    print("📷 [main] "+image_paths)
     post_album_to_instagram(image_paths, description)
 
     print("🔄 [main] Kontroluji zda jsou tu obrázky starší 7 dnů popřípadě je smažu...")
