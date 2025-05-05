@@ -88,7 +88,6 @@ def main():
         print(f"🔄 [main] Generuji obrázek pro: {name}")
         info = get_name_info(name)
         img_path = generate_image_for(name, info)
-        print(f"   ✔️ [main] Obrázek uložen jako: {img_path}")
         image_paths.append(img_path)
 
     print("🔄 [main] Generuji AI popis pro Instagram...")

@@ -10,7 +10,7 @@ dny_cesky = [
 def get_name_info(hledane_jmeno):
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
-    print(f"🔍 [name_info] Hledám svátek pro jméno '{hledane_jmeno}'...")
+    print(f"🔍 [name_info] Hledám informace k jménu: {hledane_jmeno}...")
 
     # Načtení stránky se svátky
     res = session.get("https://www.nasejmena.cz/")
