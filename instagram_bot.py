@@ -1,30 +1,81 @@
 import tempfile
 from PIL import Image
-
+import json
+import pyotp
 from instagrapi import Client
+from instagrapi.exceptions import LoginRequired, ChallengeRequired
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-load_dotenv()
-
-IG_USERNAME = os.getenv("IG_USERNAME")
-IG_PASSWORD = os.getenv("IG_PASSWORD")
-
-cl = Client()
-
 
 def login():
-    if not IG_USERNAME or not IG_PASSWORD:
-        raise ValueError("Instagram login credentials not found in .env file")
-    cl.login(IG_USERNAME, IG_PASSWORD)
+    # Načtení přihlašovacích údajů z .env
+    load_dotenv()
+    username = os.getenv("IG_USERNAME")
+    password = os.getenv("IG_PASSWORD")
+    totp_secret = os.getenv("IG_2FA_SECRET")
+
+    if not username or not password:
+        raise ValueError("IG_USERNAME nebo IG_PASSWORD není nastaveno v .env souboru!")
+
+    # Vytvoření klienta
+    cl = Client()
+
+    # Cesta k uložení session
+    SESSION_FILE = "session.json"
+
+    # Pokus o načtení session ze souboru
+    try:
+        if os.path.exists(SESSION_FILE):
+            # Správný způsob načtení session
+            cl.load_settings(SESSION_FILE)  # Předáváme cestu k souboru
+            cl.login(username, password)
+            print("✅ Přihlášeno pomocí uložené session!")
+            return cl
+    except (LoginRequired, json.JSONDecodeError) as e:
+        print(f"⚠️ Session expirovala nebo je neplatná: {e}. Přihlašuji se znovu...")
+
+    # Pokud session neexistuje nebo je neplatná, přihlásíme se znovu
+    try:
+        # Pokud je nastaven TOTP secret, vygenerujeme 2FA kód
+        verification_code = None
+        if totp_secret:
+            totp_secret = totp_secret.replace(" ", "").strip()
+            totp = pyotp.TOTP(totp_secret)
+            verification_code = totp.now()
+            print(f"🔐 Vygenerován 2FA kód: {verification_code}")
+
+        # Přihlášení
+        cl.login(
+            username=username,
+            password=password,
+            verification_code=verification_code
+        )
+
+        # Uložení session do souboru
+        cl.dump_settings(SESSION_FILE)
+
+        print("✅ Úspěšně přihlášeno a session uložena!")
+        return cl
+    except ChallengeRequired as e:
+        print(f"❌ Instagram vyžaduje dodatečné ověření: {e}")
+        raise Exception("Je potřeba manuální ověření (např. SMS).")
+    except Exception as e:
+        print(f"❌ Chyba při přihlašování: {e}")
+        raise
 
 
 def has_posted_today():
-    login()
-    posts = cl.user_medias_v1(cl.user_id, amount=1)
+    global cl  # Přidáme global, abychom mohli modifikovat klienta vytvořeného nahoře
+    cl = login()  # Přihlásíme se a získáváme klienta
 
+    # Získání user_id - přidáme kontrolu
+    if not cl.user_id:
+        raise ValueError("Nepodařilo se získat user_id po přihlášení")
+
+    posts = cl.user_medias_v1(cl.user_id, amount=1)
     today = datetime.now(timezone.utc).date()
 
     for post in posts:

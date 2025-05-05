@@ -35,7 +35,7 @@ def main():
         f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům – mluv ke jménům jako k osobnostem, ne k lidem. "
         f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin']} a formuluj to s nadsázkou."
         f"Na čtvrtý řádek přidej odlehčenou zmínku o známých nebo historických nositelích těchto jmen – zmiň že se jedná o historická jména."
-        f"Na pátý řádek (nepovinně) přidej etymologii, pokud ji znáš – formou bonusové zajímavosti, třeba: 💡 Fun fact: jméno = co to znamená. "
+        f"Na pátý řádek (nepovinně) přidej etymologii, pokud ji znáš – formou bonusové zajímavosti, třeba: 💡 Fun fact: a nějaký fun fact o jméně který jsi ještě nezmínil. "
         f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého TY JMENA (ve 2. pádě), tak ho označte do komentářů a popřejte jim/nebo mu pokud se jedna o jedno jmeno! 🎂'. "
         f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis a piš jako popisek na sociální sítě. Nepřej konkrétním osobám, ale těm jménům samotným. "
         f"Text musí být poutavý, zábavný, stylový – žádná suchá fakta, ale lehká forma infotainmentu. "
