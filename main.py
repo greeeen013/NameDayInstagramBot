@@ -7,32 +7,71 @@ from datetime import datetime, timedelta
 
 
 def delete_old_png_files():
-    # Path to the directory with images
+    """
+    Smaže PNG soubory starší než 7 dní ve formátu YYYY-MM-DD*.png
+    - Prochází adresář 'output/obrazky'
+    - Hledá soubory odpovídající vzoru data
+    - Maže ty, které jsou starší než 7 dní
+    """
+    # Cesta k adresáři s obrázky
     image_dir = 'output/obrazky'
 
-    # Vypočítá 7 dní zpátky
-    seven_days_ago = datetime.now() - timedelta(days=7)
+    print(f"🔍 [main_delete_old_png_files] Prohledávám adresář: {image_dir}")
 
-    # zkontroluje zda složka existuje
+    # Vypočítá datum před 7 dny (hranice pro mazání)
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    print(f"⏳ [main_delete_old_png_files] Mazací hranice: soubory starší než {seven_days_ago.date()}")
+
+    # Kontrola existence adresáře
     if not os.path.exists(image_dir):
+        print(f"⚠️ [main_delete_old_png_files] Adresář nenalezen! Ukončuji funkci.")
         return
 
-    # projede všechny soubory
-    for filename in os.listdir(image_dir):
-        if filename.lower().endswith('.png'):
-            try:
-                # zkusí vzít datum ze souboru (format YYYY-MM-DD*.png)
-                date_str = filename[:10]  # Prvních 10 charakteru by mělo byt datum YYYY-MM-DD
-                file_date = datetime.strptime(date_str, "%Y-%m-%d")
+    file_count = 0
+    deleted_count = 0
 
-                # pokud je starší než 7 dní, smaže ho
-                if file_date < seven_days_ago:
-                    file_path = os.path.join(image_dir, filename)
+    # Prochází všechny soubory v adresáři
+    for filename in os.listdir(image_dir):
+        file_path = os.path.join(image_dir, filename)
+
+        # Přeskočí podadresáře
+        if os.path.isdir(file_path):
+            print(f"📂 [main_delete_old_png_files] Přeskočen podadresář: {filename}")
+            continue
+
+        file_count += 1
+
+        # Zpracovává pouze PNG soubory
+        if filename.lower().endswith('.png'):
+            print(f"🖼️ [main_delete_old_png_files] Zpracovávám soubor: {filename}")
+
+            try:
+                # Pokusí se získat datum z názvu souboru (formát YYYY-MM-DD)
+                date_str = filename[:10]  # Prvních 10 znaků by mělo být datum
+                print(f"📆 [main_delete_old_png_files] Zkouším rozpoznat datum z: '{date_str}'")
+
+                file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                print(f"🗓️ [main_delete_old_png_files] Úspěšně rozpoznáno datum: {file_date}")
+
+                # Porovnání data - pokud je soubor starší než 7 dní, smaže ho
+                if file_date < seven_days_ago.date():
                     os.remove(file_path)
-                    print(f"🗑️ [main] Smazán starý obrázek: {filename}")
+                    deleted_count += 1
+                    print(f"🗑️ [main_delete_old_png_files] SMAZÁNO: {filename} (datum: {file_date})")
+                else:
+                    print(f"👍 [main_delete_old_png_files] Zachovávám (je aktuální): {filename}")
+
             except ValueError:
-                # Skip files that don't match our date pattern
+                # Přeskočí soubory, které neodpovídají formátu data
+                print(f"❓ [main_delete_old_png_files] Přeskočeno - neplatný formát data: {filename}")
                 continue
+        else:
+            print(f"⏭️ [main_delete_old_png_files] Přeskočeno - není PNG: {filename}")
+
+    # Výpis statistik po dokončení
+    print(f"📊 [main_delete_old_png_files] CELKEM: {file_count} souborů prohledáno")
+    print(f"📊 [main_delete_old_png_files] SMAZÁNO: {deleted_count} souborů")
+    print(f"🏁 [main_delete_old_png_files] Úklid dokončen!")
 
 def main():
     """
@@ -86,8 +125,8 @@ def main():
     print(image_paths)
     post_album_to_instagram(image_paths, description)
 
-    print("🔄 [main] Kontroluji a mažu staré obrázky...")
-    delete_old_png_files()
+    print("🔄 [main] Kontroluji zda jsou tu obrázky starší 7 dnů popřípadě je smažu...")
+
 
 if __name__ == "__main__":
-    main()
+    delete_old_png_files()
