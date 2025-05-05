@@ -2,7 +2,37 @@ from api_handler import generate_with_openrouter
 from instagram_bot import post_album_to_instagram
 from name_info import get_todays_names, get_name_info
 from image_generator import generate_image_for
+import os
+from datetime import datetime, timedelta
 
+
+def delete_old_png_files():
+    # Path to the directory with images
+    image_dir = 'output/obrazky'
+
+    # Vypočítá 7 dní zpátky
+    seven_days_ago = datetime.now() - timedelta(days=7)
+
+    # zkontroluje zda složka existuje
+    if not os.path.exists(image_dir):
+        return
+
+    # projede všechny soubory
+    for filename in os.listdir(image_dir):
+        if filename.lower().endswith('.png'):
+            try:
+                # zkusí vzít datum ze souboru (format YYYY-MM-DD*.png)
+                date_str = filename[:10]  # Prvních 10 charakteru by mělo byt datum YYYY-MM-DD
+                file_date = datetime.strptime(date_str, "%Y-%m-%d")
+
+                # pokud je starší než 7 dní, smaže ho
+                if file_date < seven_days_ago:
+                    file_path = os.path.join(image_dir, filename)
+                    os.remove(file_path)
+                    print(f"🗑️ [main] Smazán starý obrázek: {filename}")
+            except ValueError:
+                # Skip files that don't match our date pattern
+                continue
 
 def main():
     """
@@ -35,7 +65,7 @@ def main():
         f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům – mluv ke jménům jako k osobnostem, ne k lidem. "
         f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin']} a formuluj to s nadsázkou."
         f"Na čtvrtý řádek přidej odlehčenou zmínku o známých nebo historických nositelích těchto jmen – zmiň že se jedná o historická jména."
-        f"Na pátý řádek (nepovinně) přidej etymologii, pokud ji znáš – formou bonusové zajímavosti, třeba: 💡 Fun fact: a nějaký fun fact o jméně který jsi ještě nezmínil. "
+        f"Na pátý řádek přidej co se dnes slaví za den jako třeba den koček nebo den bez mobilu, nebo něco podobného. "
         f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého TY JMENA (ve 2. pádě), tak ho označte do komentářů a popřejte jim/nebo mu pokud se jedna o jedno jmeno! 🎂'. "
         f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis a piš jako popisek na sociální sítě. Nepřej konkrétním osobám, ale těm jménům samotným. "
         f"Text musí být poutavý, zábavný, stylový – žádná suchá fakta, ale lehká forma infotainmentu. "
@@ -56,7 +86,8 @@ def main():
     print(image_paths)
     post_album_to_instagram(image_paths, description)
 
-
+    print("🔄 [main] Kontroluji a mažu staré obrázky...")
+    delete_old_png_files()
 
 if __name__ == "__main__":
     main()
