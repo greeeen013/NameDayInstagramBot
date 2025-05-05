@@ -14,7 +14,7 @@ def delete_old_png_files():
     - Maže ty, které jsou starší než 7 dní
     """
     # Cesta k adresáři s obrázky
-    image_dir = 'output/obrazky'
+    image_dir = 'output'
 
     print(f"🔍 [main_delete_old_png_files] Prohledávám adresář: {image_dir}")
 
@@ -48,10 +48,8 @@ def delete_old_png_files():
             try:
                 # Pokusí se získat datum z názvu souboru (formát YYYY-MM-DD)
                 date_str = filename[:10]  # Prvních 10 znaků by mělo být datum
-                print(f"📆 [main_delete_old_png_files] Zkouším rozpoznat datum z: '{date_str}'")
 
                 file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                print(f"🗓️ [main_delete_old_png_files] Úspěšně rozpoznáno datum: {file_date}")
 
                 # Porovnání data - pokud je soubor starší než 7 dní, smaže ho
                 if file_date < seven_days_ago.date():
@@ -128,5 +126,7 @@ def main():
     print("🔄 [main] Kontroluji zda jsou tu obrázky starší 7 dnů popřípadě je smažu...")
 
 
+
 if __name__ == "__main__":
+    main()
     delete_old_png_files()
