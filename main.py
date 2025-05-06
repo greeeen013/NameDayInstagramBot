@@ -1,4 +1,4 @@
-from api_handler import generate_with_openrouter
+from api_handler import generate_with_gemini
 from instagram_bot import post_album_to_instagram
 from name_info import get_todays_names, get_name_info
 from image_generator import generate_image_for
@@ -106,7 +106,7 @@ def main():
         f"Text musí být poutavý, zábavný, stylový – žádná suchá fakta, ale lehká forma infotainmentu. "
     )
 
-    ai_response = generate_with_openrouter(prompt)
+    ai_response = generate_with_gemini(prompt)
     if ai_response:
         print("✅ [main] Vygenerovaný AI popis:")
         print(ai_response)
@@ -118,7 +118,7 @@ def main():
                                   f"#DnesMáSvátek #SvátekDnes #KdoMáDnesSvátek #SvátečníDen #Jmeniny #DenníSvátek #SvátekKaždýDen #ČeskéJmeniny #SvátekVČesku #DnesSlaví #KaždýDen #DenníPost #Zajímavosti #PůvodJména #JménoDne #JmennéZajímavosti #PoznejJména"
                                   f"#českýinstagram #postdne #inspirace #czsk #czechinstagram #dnes")
     print("🚀 [main] Odesílám toto album na Instagram:..")
-    print("📷 [main] "+image_paths)
+    print("📷 [main] " + str(image_paths))
     post_album_to_instagram(image_paths, description)
 
     print("🔄 [main] Kontroluji zda jsou tu obrázky starší 7 dnů popřípadě je smažu...")
