@@ -1,122 +1,136 @@
+import os
+import time
+import random
 import tempfile
+from pathlib import Path
+from datetime import datetime, timezone
+from dotenv import load_dotenv
 from PIL import Image
 import json
 import pyotp
 from instagrapi import Client
-from instagrapi.exceptions import LoginRequired, ChallengeRequired
-from dotenv import load_dotenv
-import os
-from datetime import datetime, timezone
-from pathlib import Path
+from instagrapi.exceptions import LoginRequired, ChallengeRequired, PleaseWaitFewMinutes
 
+BASE_DIR = Path(__file__).resolve().parent
+SESSION_FILE = BASE_DIR / "session.json"
+
+
+def _upload_with_retry(func, *args, max_retries=3):
+    """
+    Retries uploads on PleaseWaitFewMinutes with incremental backoff.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            return func(*args)
+        except PleaseWaitFewMinutes as e:
+            wait = random.uniform(30, 60) * attempt
+            print(f"⚠️ Rate limited on upload (attempt {attempt}/{max_retries}): {e}. Sleeping {int(wait)}s...")
+            time.sleep(wait)
+    raise Exception("❌ Max retries reached, upload failed.")
 
 def login():
-    # Načtení přihlašovacích údajů z .env
     load_dotenv()
     username = os.getenv("IG_USERNAME")
     password = os.getenv("IG_PASSWORD")
     totp_secret = os.getenv("IG_2FA_SECRET")
 
     if not username or not password:
-        raise ValueError("IG_USERNAME nebo IG_PASSWORD není nastaveno v .env souboru!")
+        raise ValueError("IG_USERNAME nebo IG_PASSWORD není nastaveno v .env!")
 
-    # Vytvoření klienta
     cl = Client()
 
-    # Cesta k uložení session
-    SESSION_FILE = "session.json"
-
-    # Pokus o načtení session ze souboru
-    try:
-        if os.path.exists(SESSION_FILE):
-            # Správný způsob načtení session
-            cl.load_settings(SESSION_FILE)  # Předáváme cestu k souboru
+    if SESSION_FILE.exists():
+        try:
+            cl.load_settings(str(SESSION_FILE))
+            settings = cl.get_settings()
+            # Re-apply device and user_agent
+            cl.set_device(settings["device_settings"])
+            cl.set_user_agent(settings["user_agent"])
             cl.login(username, password)
-            print("✅ Přihlášeno pomocí uložené session!")
+            cl.inject_sessionid_to_public()
+            print(f"✅ Přihlášeno pomocí uložené session: {SESSION_FILE}")
             return cl
-    except (LoginRequired, json.JSONDecodeError) as e:
-        print(f"⚠️ Session expirovala nebo je neplatná: {e}. Přihlašuji se znovu...")
+        except (LoginRequired, json.JSONDecodeError):
+            print("⚠️ Platnost session skončila, přihlašuji znovu...")
 
-    # Pokud session neexistuje nebo je neplatná, přihlásíme se znovu
     try:
-        # Pokud je nastaven TOTP secret, vygenerujeme 2FA kód
-        verification_code = None
+        code = None
         if totp_secret:
-            totp_secret = totp_secret.replace(" ", "").strip()
-            totp = pyotp.TOTP(totp_secret)
-            verification_code = totp.now()
-            print(f"🔐 Vygenerován 2FA kód: {verification_code}")
+            totp_secret = totp_secret.strip().replace(" ", "")
+            code = pyotp.TOTP(totp_secret).now()
+            print(f"🔐 Vygenerován 2FA kód: {code}")
 
-        # Přihlášení
-        cl.login(
-            username=username,
-            password=password,
-            verification_code=verification_code
-        )
-
-        # Uložení session do souboru
-        cl.dump_settings(SESSION_FILE)
-
-        print("✅ Úspěšně přihlášeno a session uložena!")
+        cl.login(username, password, verification_code=code)
+        cl.dump_settings(str(SESSION_FILE))
+        cl.inject_sessionid_to_public()
+        print(f"✅ Úspěšně přihlášeno a session uložena: {SESSION_FILE}")
         return cl
+
     except ChallengeRequired as e:
-        print(f"❌ Instagram vyžaduje dodatečné ověření: {e}")
-        raise Exception("Je potřeba manuální ověření (např. SMS).")
+        print(f"❌ Instagram vyžaduje další ověření: {e}")
+        raise
     except Exception as e:
-        print(f"❌ Chyba při přihlašování: {e}")
+        print(f"❌ Chyba při přihlášení: {e}")
         raise
 
-
-def has_posted_today():
-    global cl  # Přidáme global, abychom mohli modifikovat klienta vytvořeného nahoře
-    cl = login()  # Přihlásíme se a získáváme klienta
-
-    # Získání user_id - přidáme kontrolu
+def has_posted_today(cl: Client, max_retries=3) -> bool:
+    """Check if user has posted today, with retry on rate limit."""
     if not cl.user_id:
         raise ValueError("Nepodařilo se získat user_id po přihlášení")
+    for attempt in range(1, max_retries + 1):
+        try:
+            posts = cl.user_medias_v1(cl.user_id, amount=1)
+            break
+        except PleaseWaitFewMinutes as e:
+            wait = random.uniform(20, 40) * attempt
+            print(f"⚠️ Rate limited on has_posted_today (attempt {attempt}/{max_retries}): {e}. Sleeping {int(wait)}s...")
+            time.sleep(wait)
+    else:
+        print("⚠️ Nelze ověřit poslední post; předpokládám, že dnes nic nebylo.")
+        return False
 
-    posts = cl.user_medias_v1(cl.user_id, amount=1)
     today = datetime.now(timezone.utc).date()
+    return any(p.taken_at.date() == today for p in posts)
 
-    for post in posts:
-        if post.taken_at.date() == today:
-            return True
-    return False
 
 def post_album_to_instagram(image_paths, description):
     """
-    Přihlásí se a nahraje album nebo jeden obrázek na Instagram.
-    Všechny obrázky převede na JPEG formát s rozměrem 1080x1080.
+    Přihlásí se, předzpracuje obrázky a nahraje fotku nebo album s retry logikou.
     """
-    if has_posted_today():
-        print("❌ [instagra_bot] Dnes už bylo něco nahráno.")
+    cl = login()
+
+    if has_posted_today(cl):
+        print("❌ [insta_bot] Dnes už bylo něco nahráno.")
         return
 
-    # Pokud image_paths není seznam (např. je to jen string), převedeme na seznam
     if isinstance(image_paths, (str, Path)):
         image_paths = [image_paths]
 
-    converted_paths = []
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        for i, img_path in enumerate(image_paths):
-            img = Image.open(img_path).convert("RGB")
-            img = img.resize((1080, 1080))
-            output_path = Path(tmpdirname) / f"converted_{i}.jpg"
-            img.save(output_path, "JPEG", quality=95)
-            converted_paths.append(output_path)
+    converted = []
+    output_dir = BASE_DIR / "output"
+    output_dir.mkdir(exist_ok=True)
 
-        # Pokud je jen jeden obrázek, použij single upload
-        if len(converted_paths) == 1:
-            cl.photo_upload(converted_paths[0], caption=description)
-            print("✔️ [instagra_bot] Fotka úspěšně nahrána!")
+    with tempfile.TemporaryDirectory() as tmp:
+        for idx, path in enumerate(image_paths):
+            img = Image.open(path).convert("RGB").resize((1080, 1080))
+            out = output_dir / f"img_{idx}.jpg"
+            img.save(out, "JPEG", quality=95)
+            converted.append(out)
+
+        # Small delay before upload
+        time.sleep(random.uniform(5, 10))
+
+        if len(converted) == 1:
+            _upload_with_retry(cl.photo_upload, converted[0], description)
+            print("✔️ [insta_bot] Fotka úspěšně nahrána!")
         else:
-            cl.album_upload(converted_paths, caption=description)
-            print("✔️ [instagra_bot] Album úspěšně nahráno!")
+            _upload_with_retry(cl.album_upload, converted, description)
+            print("✔️ [insta_bot] Album úspěšně nahráno!")
 
 
 if __name__ == "__main__":
-    # Příklad použití s více obrázky
     images = ["image1.png", "image2.png", "image3.png"]
-    description = "Dnešní svátky 🎉\n\n#svatky #jmeniny #kalendar"
-
-    post_album_to_instagram(images, description)
+    desc = "Dnešní svátky 🎉\n\n#svatky #jmeniny #kalendar"
+    print("🚀 [main] Odesílám toto album na Instagram:..")
+    print(f"📋 [main] {images}")
+    post_album_to_instagram(images, desc)

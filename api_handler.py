@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-import google.generativeai as genai
 import os
 import requests
 import json
@@ -43,7 +42,6 @@ def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
 
             data = response.json()
 
-            # Extract the response text from the nested structure
             if data and 'candidates' in data and len(data['candidates']) > 0:
                 return data['candidates'][0]['content']['parts'][0]['text']
             else:

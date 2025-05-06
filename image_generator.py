@@ -1,5 +1,4 @@
 import random
-import textwrap
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import os
@@ -133,9 +132,10 @@ def draw_texts(image, name, info):
 # Generování obrázku pro jedno jméno
 #----------------------------------------
 def generate_image_for(name, info):
+    from pathlib import Path
     # vytvoří output adresář pokud neexistuje
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir = Path(BASE_DIR) / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     img = generate_gradient_background(1080, 1080)
     draw_texts(img, name, info)

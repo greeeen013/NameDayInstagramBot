@@ -14,7 +14,7 @@ def delete_old_png_files():
     - Maže ty, které jsou starší než 7 dní
     """
     # Cesta k adresáři s obrázky
-    image_dir = 'output'
+    image_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
 
     print(f"🔍 [main_delete_old_png_files] Prohledávám adresář: {image_dir}")
 
@@ -99,11 +99,13 @@ def main():
         f"Jména spoj správně ve 2. pádě, nesmí se opakovat ani být v nominativu. "
         f"Začni hlavní větou stylu: 🎉 Oslava svátku pro Alexeje a Alexe je tady! 🎉 – nebo podobně výraznou oslavnou větou s emojis. "
         f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům – mluv ke jménům jako k osobnostem, ne k lidem. "
-        f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin']} a formuluj to s nadsázkou."
-        f"Na čtvrtý řádek přidej odlehčenou zmínku o známých nebo historických nositelích těchto jmen – zmiň že se jedná o historická jména."
-        f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého TY JMENA (ve 2. pádě), tak ho označte do komentářů a popřejte jim/nebo mu pokud se jedna o jedno jmeno! 🎂'. "
-        f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis a piš jako popisek na sociální sítě. Nepřej konkrétním osobám, ale těm jménům samotným. "
-        f"Text musí být poutavý, zábavný, stylový – žádná suchá fakta, ale lehká forma infotainmentu. "
+        f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin']} a formuluj to s nadsázkou. "
+        f"Na čtvrtý řádek přidej zmínku o tom, co jméno znamená, např. 'květoslava – kvetoucí, květinová', dej tomu vtipný kabát a zmiň, že mluvíš o významu jména. "
+        f"Na pátý řádek uveď 2–3 konkrétní historické nebo významné osobnosti, které toto jméno nesly – napiš jejich plná jména a stručně, proč jsou slavní (např. sv. Václav, český kníže; Karel IV., římský císař; Josef Jungmann, národní buditel). "
+        f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého TY JMENA (ve 2. pádě), tak ho označte do komentářů a popřejte mu/jim! 🎂'. "
+        f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis a piš jako popisek na sociální sítě. "
+        f"Nepřej konkrétním osobám, ale těm jménům samotným, a nepiš žádné hashtagy. "
+        f"Text musí být poutavý, zábavný, stylový – žádná suchá fakta, ale lehká forma infotainmentu."
     )
 
     ai_response = generate_with_gemini(prompt)
@@ -113,7 +115,7 @@ def main():
     else:
         ai_response = "Dnes má svátek " +{names}+"."
         print("❌ [main] Nepodařilo se vygenerovat AI popis. Používám výchozí text.")
-    description = ai_response+(f"\n\n\n."
+    description = ai_response+(f"\n\n\n"
                                   f"informace jsou z: czso.cz a nasejmena.cz\n"
                                   f"#DnesMáSvátek #SvátekDnes #KdoMáDnesSvátek #SvátečníDen #Jmeniny #DenníSvátek #SvátekKaždýDen #ČeskéJmeniny #SvátekVČesku #DnesSlaví #KaždýDen #DenníPost #Zajímavosti #PůvodJména #JménoDne #JmennéZajímavosti #PoznejJména"
                                   f"#českýinstagram #postdne #inspirace #czsk #czechinstagram #dnes")
