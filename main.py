@@ -115,10 +115,10 @@ def main():
     else:
         ai_response = "Dnes má svátek " +{names}+"."
         print("❌ [main] Nepodařilo se vygenerovat AI popis. Používám výchozí text.")
-    description = ai_response+(f"\n\n\n"
-                                  f"informace jsou z: czso.cz a nasejmena.cz\n"
-                                  f"#DnesMáSvátek #SvátekDnes #KdoMáDnesSvátek #SvátečníDen #Jmeniny #DenníSvátek #SvátekKaždýDen #ČeskéJmeniny #SvátekVČesku #DnesSlaví #KaždýDen #DenníPost #Zajímavosti #PůvodJména #JménoDne #JmennéZajímavosti #PoznejJména"
-                                  f"#českýinstagram #postdne #inspirace #czsk #czechinstagram #dnes")
+    description = ai_response + (f"\n\n\n."
+                                 f"informace jsou z: czso.cz a nasejmena.cz\n"
+                                 f"#DnesMaSvatek #SvatekDnes #KdoMaDnesSvatek #SvatecniDen #Jmeniny #DenniSvatek #SvatekKazdyDen #CeskeJmeniny #SvatekVCesku #DnesSlavi #KazdyDen #DenniPost #Zajimavosti #PuvodJmena #JmenoDne #JmenneZajimavosti #PoznejJmena"
+                                 f"#ceskyinstagram #postdne #inspirace #czsk #czechinstagram #dnes")
     print("🚀 [main] Odesílám toto album na Instagram:..")
     print("📷 [main] " + str(image_paths))
     post_album_to_instagram(image_paths, description)
