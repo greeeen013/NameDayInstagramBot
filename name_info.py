@@ -112,6 +112,61 @@ def get_name_info(hledane_jmeno):
     print("❌ [name_info] Dnes nikdo nemá svátek.")
     return None
 
+
+def get_todays_holiday():
+    dny_cesky = ["Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota", "Neděle"]
+
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0"})
+    print("🔍 Hledám neklikatelná jména pro dnešní den...")
+
+    res = session.get("https://www.nasejmena.cz/")
+    if res.status_code != 200:
+        print("❌ Nepodařilo se načíst stránku se svátky.")
+        return None
+
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    dnes = datetime.now()
+    den_nazev = dny_cesky[dnes.weekday()]
+    datum = f"{dnes.day}.{dnes.month}.{dnes.year}"
+    hledany_radek = f"{den_nazev}\xa0{datum}"
+
+    td_dens = soup.find("td", string=hledany_radek)
+    if not td_dens:
+        alternativni_format = f"{den_nazev}&nbsp;{datum}"
+        td_dens = soup.find("td", string=alternativni_format)
+        if not td_dens:
+            print("❌ Dnešní datum nebylo nalezeno v kalendáři.")
+            return None
+
+    td = td_dens.find_parent("tr").find_next_sibling("tr")
+    non_clickable_names = []
+
+    while td:
+        obsah_td = td.find("td")
+        if not obsah_td:
+            td = td.find_next_sibling("tr")
+            continue
+
+        if any(cls in obsah_td.get("class", []) for cls in ["kal_jme", "kal_jmev", "kal_jmes"]):
+            for element in obsah_td.contents:
+                if element.name != "a" and element.strip():
+                    non_clickable_names.append(element.strip())
+
+        if any(cls in obsah_td.get("class", []) for cls in ["kal_dens", "kal_den", "kal_denv"]):
+            break
+
+        td = td.find_next_sibling("tr")
+
+    if non_clickable_names:
+        print(f"✅ Neklikatelné jméno: {non_clickable_names[0]}")
+        return non_clickable_names[0]  # Vrátíme pouze první jméno jako string
+    else:
+        print("❌ Dnes nebyla nalezena žádná neklikatelná jména.")
+        return None
+
+    
 def get_todays_names():
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
