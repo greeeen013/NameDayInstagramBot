@@ -94,15 +94,15 @@ def main():
 
         # Generování popisu pro svátek
         prompt = (
-            f"Napiš kreativní, vtipný a energický popisek na Instagram v češtině, který oslavuje svátek {holiday}. "
-            f"Začni výraznou oslavnou větou ve stylu: 🎉 Dnes slavíme {holiday}! 🎉 – nebo něco podobného s emojis. "
-            f"Na druhý řádek napiš odlehčené a zábavné přání – oslovuj ten svátek jako kdyby to byla živá postava, dej tomu osobnost. "
-            f"Na třetí řádek přidej krátké, hravé vysvětlení, proč se tento svátek slaví – infotainmentovou formou. "
-            f"Na čtvrtý řádek přidej jednu nebo dvě zajímavosti či fakta, která s tímto svátkem souvisejí, ale podané s nadsázkou. "
-            f"Na pátý řádek uveď 2–3 historické události, osobnosti nebo symboly spojené se svátkem {holiday} – napiš stručně, proč jsou důležité. "
-            f"Na závěr přidej výzvu k akci, např. 'Slavíte taky {holiday}? Hoďte nám to do komentářů a připomeňte si, co pro vás znamená! 🇨🇿✨'. "
-            f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis a piš jako popisek na sociální sítě."
+            f"Napiš kreativní, vtipný, ale zároveň uctivý popisek na Instagram v češtině, který oslavuje významný den: {holiday}. "
+            f"Začni oslavnou větou s emojis, např. 🎉 Dnes si připomínáme {holiday}! 🇨🇿 – udrž tón slavnostní, ale svěží. "
+            f"Na druhý řádek napiš zábavné a odlehčené shrnutí, co tento den pro Česko znamená – nepoužívej přehnanou ironii. "
+            f"Na třetí řádek přidej zajímavou historickou souvislost nebo fakt s lehkým nadhledem, ale s respektem. "
+            f"Na čtvrtý řádek napiš 2–3 konkrétní osobnosti, události nebo symboly spojené s tímto svátkem – napiš, proč jsou významné. "
+            f"Na závěr přidej výzvu k akci, např. 'Jak si připomínáte {holiday} vy? Podělte se s námi v komentářích! ✨'. "
+            f"Celý výstup by měl být přístupný, stylový a přirozený – ideální pro sociální sítě. Používej emojis střídmě, drž tón mezi důstojným a lehce odlehčeným."
         )
+
 
         # Generování obrázku pro svátek
         print(f"🔄 Generuji obrázek pro svátek: {holiday}")
@@ -120,7 +120,7 @@ def main():
 
         description = (ai_response +
                        f"\n\n\nInformace o svátcích: wikipedie.cz\n"
-                       f"#DnesMaSvatek #SvatekDnes #Den{holiday.replace(' ', '')} "
+                       f"#DnesMaSvatek #SvatekDnes #{holiday.replace(' ', '')} "
                        f"#SvatecniDen #DenniSvatek #SvatekKazdyDen #SvatekVCesku "
                        f"#DnesSlavi #Zajimavosti #PoznejSvatky")
 
@@ -145,16 +145,17 @@ def main():
         info = get_name_info(names[0]) if names else None
 
         prompt = (
-            f"Napiš kreativní, vtipný a energický popisek na Instagram v češtině, který oslavuje svátek těchto jmen: {info}. "
+            f"Napiš kreativní, vtipný a energický popisek na Instagram v češtině, který oslavuje svátek těchto jmen: {names}. "
             f"POZOR – pokud je jméno jen jedno, piš výhradně v jednotném čísle ('Oslava svátku pro Květoslava je tady!'), "
             f"pokud je jmen víc, piš v množném čísle ('Oslava svátku pro Alexeje a Květoslava je tady!'). "
-            f"Začni hlavní větou stylu: 🎉 Oslava svátku pro {info} je tady! 🎉 – nebo podobně výraznou oslavnou větou s emojis. "
+            f"Začni hlavní větou stylu: 🎉 Oslava svátku pro {names} je tady! 🎉 – nebo podobně výraznou oslavnou větou s emojis. "
             f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům – mluv ke jménům jako k osobnostem, ne k lidem. "
-            f"Na třetí řádek nenuceně zakomponuj původ jména, použij hodnotu {info['origin'] if info else 'neuvedeno'} a formuluj to s nadsázkou. "
-            f"Na čtvrtý řádek přidej zmínku o tom, co jméno znamená. "
-            f"Na pátý řádek uveď 2–3 konkrétní historické nebo významné osobnosti, které toto jméno nesly. "
-            f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého {info}, tak ho označte do komentářů a popřejte mu/jim! 🎂'. "
-            f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis."
+            f"Na třetí řádek zakomponuj původ jména, použij hodnotu {info['origin'] if info else 'neuvedeno'} a formuluj to s nadsázkou. "
+            f"Na čtvrtý řádek vtipně vysvětli význam jména – například 'květoslava – kvetoucí, květinová' a přidej zábavný komentář. "
+            f"Na pátý řádek napiš 2–3 historické nebo známé osobnosti s tímto jménem, každou uveď ve formátu: Jméno – důvod slavnosti (např. 'Josef Jungmann – národní buditel'). "
+            f"Nepoužívej jména vícekrát v textu. "
+            f"Na závěr přidej výzvu k akci, např. 'Tak co, znáte nějakého {names}? Označte ho v komentářích a popřejte mu! 🎂'. "
+            f"Celý výstup piš uvolněně, s lehkým humorem, bohatě používej emojis. Piš jako popisek na sociální sítě, ne jako encyklopedii."
         )
 
         ai_response = generate_with_gemini(prompt)
