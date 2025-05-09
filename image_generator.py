@@ -85,22 +85,27 @@ def draw_texts(image, name, info=None):
     w, h = image.size
     x0, y0, sq = create_overlay_square(image)
 
+    # Dny a měsíce
     weekdays = ['Pondělí','Úterý','Středa','Čtvrtek','Pátek','Sobota','Neděle']
     months = {
         1:'ledna', 2:'února', 3:'března', 4:'dubna', 5:'května', 6:'června',
         7:'července', 8:'srpna', 9:'září', 10:'října', 11:'listopadu', 12:'prosince'
     }
 
+    # Dnešní den a datum
     today = datetime.now()
     day_name = weekdays[today.weekday()]
     date_txt = f"{today.day}. {months[today.month]}"
 
+    # 📏 Výška řádku – overlay rozdělíme do 8 zón
     line_height = sq // 8
     center_x = w // 2
 
+    # 1) Den v týdnu
     y_weekday = y0 + line_height * 0 + 20
     draw_centered(draw, day_name, fonts['weekday_bold'], center_x, y_weekday)
 
+    # 2) Datum
     y_date = y0 + line_height * 1
     draw_centered(draw, date_txt, fonts['date'], center_x, y_date)
 
@@ -110,9 +115,29 @@ def draw_texts(image, name, info=None):
     font_for_name = fonts['name_smaller'] if len(name) >= 12 else fonts['name']
 
     if info is None:
+        # 3) Svátek víc uprostřed
         draw_centered(draw, name, font_for_name, center_x, h // 2)
     else:
+        # 3) Jméno
         draw_centered(draw, name, font_for_name, center_x, y_name)
+
+        # 4) Statistiky (hodnoty + popisky)
+        stats_y = y0 + line_height * 4 + 80
+        col_w = sq / 3
+        base_x = center_x - sq / 2
+        stats_vals = [info.get('rank'), info.get('count'), info.get('avg_age')]
+        stats_lbls = ['nejčastější', 'nositelů', 'ø věk']
+        for i, (val, lbl) in enumerate(zip(stats_vals, stats_lbls)):
+            x = base_x + col_w * i + col_w / 2
+            txt_val = f"{val}." if i == 0 else str(val)
+            draw_centered(draw, txt_val, fonts['stats_num'], x, stats_y)
+            draw_centered(draw, lbl, fonts['stats_lbl'], x, stats_y + 80)
+
+        # 5) Původ jména
+        y_orig = y0 + line_height * 6 + 10
+        origin_txt = f"původ: {info.get('origin', '–')}"
+        draw_centered(draw, origin_txt, fonts['origin'], center_x, y_orig)
+
 
 
     # 6) Footer

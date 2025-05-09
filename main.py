@@ -90,9 +90,8 @@ def main():
             print("❌ Dnes není žádný svátek ani jmeniny.")
             return
 
-        print(f"🎉 Dnes je svátek: {holiday}")
-
         # Generování popisu pro svátek
+        print("🔄 Generuji AI popis pro Svátek na Instagram popisek...")
         prompt = (
             f"Napiš kreativní, vtipný, ale zároveň uctivý popisek na Instagram v češtině, který oslavuje významný den: {holiday}. "
             f"Začni oslavnou větou s emojis, např. 🎉 Dnes si připomínáme {holiday}! 🇨🇿 – udrž tón slavnostní, ale svěží. "
@@ -118,6 +117,7 @@ def main():
             ai_response = f"🎉 Dnes slavíme {holiday}! 🎉\n\nPřipojte se k oslavám tohoto výjimečného dne!"
             print("❌ Nepodařilo se vygenerovat AI popis. Používám výchozí text.")
 
+        print(ai_response)
         description = (ai_response +
                        f"\n\n\nInformace o svátcích: wikipedie.cz\n"
                        f"#DnesMaSvatek #SvatekDnes #{holiday.replace(' ', '')} "
@@ -141,7 +141,7 @@ def main():
             print("❌ Nepodařilo se vygenerovat žádné obrázky")
             return
 
-        print("🔄 Generuji AI popis pro Instagram...")
+        print("🔄 Generuji AI popis pro Jména na Instagram popisek...")
         info = get_name_info(names[0]) if names else None
 
         prompt = (
@@ -160,9 +160,10 @@ def main():
 
         ai_response = generate_with_gemini(prompt)
         if not ai_response:
-            ai_response = f"🎉 Dnes má svátek {info}! 🎉\n\nVšem {info} přejeme vše nejlepší!"
+            ai_response = f"🎉 Dnes má svátek {names}! 🎉\n\nVšem {names} přejeme vše nejlepší!"
             print("❌ Nepodařilo se vygenerovat AI popis. Používám výchozí text.")
 
+        print(ai_response)
         description = (ai_response +
                        f"\n\n\nInformace jsou z: czso.cz a nasejmena.cz\n"
                        f"#DnesMaSvatek #SvatekDnes #KdoMaDnesSvatek #SvatecniDen #Jmeniny "
