@@ -1,10 +1,15 @@
 import random
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import os
 
+from api_handler import get_nasa_apod
 # import funkcí pro získání dnešních jmen a informací o jménu
 from name_info import get_todays_names, get_name_info
+
+from pathlib import Path
+import requests
+from io import BytesIO
 
 # Zjistí cestu k adresáři, kde je tento skript
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -143,6 +148,37 @@ def draw_texts(image, name, info=None):
     # 6) Footer
     y_footer = y0 + sq - 50
     draw_centered(draw, '@svatekazdyden', fonts['footer'], center_x, y_footer)
+
+def generate_nasa_image():
+    """
+    Stáhne NASA APOD obrázek, ořízne jej a přidá text. Vrací (path, explanation) nebo (None, None).
+    """
+    output_dir = Path(BASE_DIR) / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    apod_data = get_nasa_apod()
+    if not apod_data:
+        return None, None
+
+    url = apod_data["hdurl"]
+    explanation = apod_data["explanation"]
+
+    try:
+        res = requests.get(url)
+        res.raise_for_status()
+        img = Image.open(BytesIO(res.content))
+    except Exception as e:
+        print(f"❌ [image_generator] Chyba při stahování APOD obrázku: {e}")
+        return None, None
+
+    img = img.convert("RGB")
+    img_square = ImageOps.fit(img, (1080, 1080), Image.LANCZOS, centering=(0.5, 0.5))
+
+    filename = f"{datetime.now().strftime('%Y-%m-%d')}_NASA.png"
+    filepath = output_dir / filename
+    img_square.save(filepath)
+
+    return filepath, explanation
 
 #----------------------------------------
 # Generování obrázku pro jedno jméno
