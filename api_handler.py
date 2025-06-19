@@ -6,6 +6,7 @@ import json
 # Načtení API klíče z .env souboru
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
+NASA_API_KEY = os.getenv("NASA_API_KEY")
 
 
 def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
@@ -58,6 +59,33 @@ def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
                 return None
 
     return None
+
+def get_nasa_apod():
+    """
+    Načte dnešní data APOD (Astronomický snímek dne) z NASA API.
+    Vrací slovník s 'hdurl' a 'vysvětlení', nebo None v případě chyby.
+    """
+    if not NASA_API_KEY:
+        print("❌ [api_handler] NASA_API_KEY není nastaveno v .env souboru.")
+        return None
+    try:
+        res = requests.get(f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}")
+        if res.status_code != 200:
+            print(f"❌ [api_handler] Chyba {res.status_code} při volání NASA APOD API.")
+            return None
+        data = res.json()
+        url = data.get("hdurl") or data.get("url")
+        explanation = data.get("explanation")
+        if not url or not explanation:
+            print("❌ [api_handler] Chybí URL nebo explanation v odpovědi NASA.")
+            return None
+        return {
+            "hdurl": url,
+            "explanation": explanation
+        }
+    except Exception as e:
+        print(f"❌ [api_handler] Výjimka při volání NASA APOD API: {e}")
+        return None
 
 
 if __name__ == "__main__":
