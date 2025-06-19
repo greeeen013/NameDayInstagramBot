@@ -1,6 +1,6 @@
 from api_handler import generate_with_gemini
 from instagram_bot import post_album_to_instagram
-from name_info import get_todays_names, get_name_info, get_todays_holiday
+from name_info import get_name_details, get_today_names_and_holidays, letter_map
 from image_generator import generate_image_for, generate_nasa_image
 import os
 from datetime import datetime, timedelta
@@ -71,6 +71,65 @@ def delete_old_png_files():
     print(f"📊 [main_delete_old_png_files] SMAZÁNO: {deleted_count} souborů")
     print(f"🏁 [main_delete_old_png_files] Úklid dokončen!")
 
+def generate_name_prompt(names, names_info):
+    newline = '\n'  # Definujeme si nový řádek předem
+
+    name_details = []
+    for name, info in zip(names, names_info):
+        details = [
+            f"Jméno: {name}",
+            f"Původ: {info.get('origin', 'neznámý')}",
+            f"Význam: {info.get('meaning', 'neuveden')}",
+            f"Popularita: {info.get('rank', 'neuveden')}. místo",
+            f"Průměrný věk nositelů: {info.get('avg_age', 'neuveden')} let",
+            f"Počet nositelů: {info.get('count', 'neuveden')}"
+        ]
+        name_details.append(newline.join(details))  # Použijeme předdefinovaný newline
+
+    names_list = ", ".join(names) if len(names) > 1 else names[0]
+    number_agreement = "je" if len(names) == 1 else "jsou"
+
+    separator = '-' * 50 + newline  # Vytvoříme separator s newline
+
+    prompt = f"""
+    Napiš Instagram post v češtině oslavující jména {names_list} podle těchto pravidel:
+
+    1. FORMÁT (žádné odsazení, jen odstavce):
+    "Dnes slavíme {names_list}! [emoji]"
+
+    [Prázdný řádek]
+
+    [Odstavec o původu - spoj pokud stejný, s vtipem]
+    [Prázdný řádek] 
+
+    [Odstavec o významu - spoj pokud stejný, s vtipem]
+    [Prázdný řádek]
+
+    [Odstavec o osobnostech - 1-2 věty s emoji]
+    [Prázdný řádek]
+
+    "Tak co, znáte nějakého {names_list}? Označte {'je' if len(names) > 1 else 'ho'} v komentářích a popřejte {'jim' if len(names) > 1 else 'mu'} parádní oslavu! 🎂🥂"
+
+    2. PRAVIDLA:
+    - Žádné odsazení, žádné tabulátory
+    - Mezi odstavci vždy prázdný řádek
+    - Max 10 emoji
+    - Vtipné, ale přirozené komentáře
+    - Žádné hashtagy, formátování
+    - Pokud stejný původ/význam, spoj do jednoho odstavce
+
+    Příklad výstupu:
+    Dnes slavíme Leoše a Lea! 🦁✨
+
+    Leoš i Leo mají řecký původ - to je jasný, s tímhle jménem musíte umět ovládat blesky, minimálně gril! ⚡️
+
+    Oba znamenáte 'lev' - takže místo kočičích her rovnou kousání do dortů! 🎂
+
+    Leoš Mareš rozjede každou show jako uragán 🎤, zatímco Leo DiCaprio, no ten je prostě král všeho... včetně zmrzlinářství na pláži! 😎
+
+    Tak co, znáte nějakého Leoše nebo Lea? Označte je v komentářích a popřejte jim parádní oslavu hodnou lvího krále! 🎂🥂
+    """
+    return prompt
 
 def main():
     """
@@ -80,49 +139,37 @@ def main():
     4) Nahraje obsah na Instagram.
     """
     print("🍀 Načítám dnešní sváteční jména...")
-    names = get_todays_names()
+    names, holidays = get_today_names_and_holidays()
     image_paths = []
 
     if names:
         print("🎨 Generuji obrázky pro jména...")
+        names_info = []
         for name in names:
-            info = get_name_info(name)
+            info = get_name_details(name, letter_map)
             img_path = generate_image_for(name, info)
             if img_path:
                 image_paths.append(img_path)
+                names_info.append(info)
 
-        if not image_paths:
-            print("❌ Nepodařilo se vygenerovat žádné obrázky pro jména.")
-            return
+        prompt = generate_name_prompt(names, names_info)
 
-        info = get_name_info(names[0]) if names else None
-        origin = info.get('origin') if info else 'neuvedeno'
-
-        prompt = (
-            f"Napiš kreativní, vtipný a energický popisek na Instagram v češtině, který oslavuje svátek těchto jmen: {names}. "
-            f"POZOR – pokud je jméno jen jedno, piš výhradně v jednotném čísle ('Oslava svátku pro Květoslava je tady!'), "
-            f"pokud je jmen víc, piš v množném čísle ('Oslava svátku pro Alexeje a Květoslava je tady!'). "
-            f"Začni hlavní větou stylu: 🎉 Oslava svátku pro {names} je tady! 🎉 – nebo podobně výraznou oslavnou větou s emojis. "
-            f"Na druhý řádek napiš odlehčené a zábavné přání těmto jménům. "
-            f"Na třetí řádek zakomponuj původ jména: {origin}, s nadsázkou. "
-            f"Na čtvrtý řádek vysvětli význam jména a přidej vtipný komentář. "
-            f"Na pátý řádek napiš 2–3 historické osobnosti s tímto jménem a jejich význam. "
-            f"Na závěr výzva: 'Znáš nějakého {names}? Označ ho v komentáři a popřej mu! 🎂'. "
-            f"Piš v uvolněném, zábavném a emoji-friendly stylu pro sociální sítě."
-        )
     else:
         print("ℹ️ Žádné jméno dnes neslaví. Kontroluji státní svátky...")
-        holiday = get_todays_holiday()
+        names, holidays = get_today_names_and_holidays()
 
-        if not holiday:
+        if not holidays:
             print("❌ Dnes není žádný svátek ani jmeniny.")
             return
 
+        holiday = holidays[0]  # bereme první svátek, pokud jich je více
         print(f"🎨 Generuji obrázek pro svátek: {holiday}")
+
         img_path = generate_image_for(holiday)
         if not img_path:
             print("❌ Nepodařilo se vygenerovat obrázek pro svátek.")
             return
+
         image_paths.append(img_path)
 
         prompt = (
@@ -165,7 +212,7 @@ def main():
                 ai_response += f"\n📷 Fotka z vesmíru:\n{translated}"
 
     # 📝 Připrav finální popis
-    sources =("\nInformace jsou z: czso.cz a nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)")
+    sources =("\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)")
     hashtags = (
         "\n\n#DnesMaSvatek #SvatekDnes #SvatekKazdyDen "
         "#CeskeJmeniny #Svatky #PoznejSvatky #DnesSlavi"
