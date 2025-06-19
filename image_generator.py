@@ -4,8 +4,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import os
 
 from api_handler import get_nasa_apod
-# import funkcí pro získání dnešních jmen a informací o jménu
-from name_info import get_todays_names, get_name_info
 
 from pathlib import Path
 import requests
@@ -199,18 +197,3 @@ def generate_image_for(name, info=None):
     print("✅ [image_generator] Soubor byl uložen do: "+os.path.abspath(filepath))
     img.save(filepath)
     return filepath
-
-#----------------------------------------
-# Hlavní blok: načtení jmen a generování obrázků
-#----------------------------------------
-if __name__ == '__main__':
-    print("🍀 Získávám dnešní sváteční jména...")
-    names = get_todays_names()
-    if not names:
-        print("ℹ️ Dnes žádné sváteční jméno.")
-    for name in names:
-        print(f"🔄 Generuji obrázek pro: {name}")
-        info = get_name_info(name)
-        print(f"   ✅ Počet: {info['count']}, pořadí: {info['rank']}, průměrný věk: {info['avg_age']}, původ: {info.get('origin','–')}")
-        out = generate_image_for(name, info)
-        print(f"🌟 Obrázek uložen: {out}\n")
