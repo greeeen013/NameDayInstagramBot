@@ -175,7 +175,7 @@ def generate_nasa_image():
     img_square = ImageOps.fit(img, (1080, 1080), Image.LANCZOS, centering=(0.5, 0.5))
 
     filename = f"{datetime.now().strftime('%Y-%m-%d')}_NASA.png"
-    filepath = output_dir / filename
+    filepath = str(output_dir / filename)  # Převést na string
     img_square.save(filepath)
 
     return filepath, explanation
