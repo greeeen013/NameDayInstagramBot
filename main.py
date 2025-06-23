@@ -92,43 +92,63 @@ def generate_name_prompt(names, names_info):
     separator = '-' * 50 + newline  # Vytvoříme separator s newline
 
     prompt = f"""
-    Napiš Instagram post v češtině oslavující jména {names_list} podle těchto pravidel:
+        Napiš Instagram post v češtině oslavující jména {names_list} podle těchto pravidel:
 
-    1. FORMÁT (žádné odsazení, jen odstavce):
-    "Dnes slavíme {names_list}! [emoji]"
+        1. FORMÁT (žádné odsazení, jen odstavce):
+        "Dnes slavíme {names_list}! [emoji]"
 
-    [Prázdný řádek]
+        [Prázdný řádek]
 
-    [Odstavec o původu - spoj pokud stejný, s vtipem]
-    [Prázdný řádek] 
+        [Odstavec o původu - spoj pokud stejný, s vtipem]
+        [Prázdný řádek] 
 
-    [Odstavec o významu - spoj pokud stejný, s vtipem]
-    [Prázdný řádek]
+        [Odstavec o významu - spoj pokud stejný, s vtipem]
+        [Prázdný řádek]
 
-    [Odstavec o osobnostech - 1-2 věty s emoji]
-    [Prázdný řádek]
+        [Odstavec o osobnostech - 1-2 věty s emoji]
+        [Prázdný řádek]
 
-    "Tak co, znáte nějakého {names_list}? Označte {'je' if len(names) > 1 else 'ho'} v komentářích a popřejte {'jim' if len(names) > 1 else 'mu'} parádní oslavu! 🎂🥂"
+        "Tak co, znáte nějakého {names_list}? Označte {'je' if len(names) > 1 else ('ho' if gender == 'male' else 'ji')} v komentářích a popřejte {'jim' if len(names) > 1 else ('mu' if gender == 'male' else 'jí')} parádní oslavu! 🎂🥂"
 
-    2. PRAVIDLA:
-    - Žádné odsazení, žádné tabulátory
-    - Mezi odstavci vždy prázdný řádek
-    - Max 10 emoji
-    - Vtipné, ale přirozené komentáře
-    - Žádné hashtagy, formátování
-    - Pokud stejný původ/význam, spoj do jednoho odstavce
+        2. PRAVIDLA:
+        - Žádné odsazení, žádné tabulátory
+        - Mezi odstavci vždy prázdný řádek
+        - Max 10 emoji
+        - Vtipné, ale přirozené komentáře
+        - Žádné hashtagy, formátování
+        - Pokud stejný původ/význam, spoj do jednoho odstavce
+        - POUŽÍVEJ SPRÁVNÉ RODOVÉ TVARY PODLE POHLAVÍ JMÉNA
+        - Pokud je jméno ženské, používej ženské tvary (např. "oslavujeme Zděnku", "popřejte jí")
+        - Pokud je jméno mužské, používej mužské tvary (např. "oslavujeme Zdeňka", "popřejte mu")
+        - U vícero jmen rozlišuj rody a používej správné skloňování
 
-    Příklad výstupu:
-    Dnes slavíme Leoše a Lea! 🦁✨
+        3. PŘÍKLADY SPRÁVNÉHO POUŽITÍ:
+        - Pro ženské jméno (Zděnka):
+          "Dnes slavíme Zděnku! 🌸
+          ...
+          Tak co, znáte nějakou Zděnku? Označte ji v komentářích a popřejte jí parádní oslavu! 🎂🥂"
 
-    Leoš i Leo mají řecký původ - to je jasný, s tímhle jménem musíte umět ovládat blesky, minimálně gril! ⚡️
+        - Pro mužské jméno (Zdeněk):
+          "Dnes slavíme Zdeňka! 🎩
+          ...
+          Tak co, znáte nějakého Zdeňka? Označte ho v komentářích a popřejte mu parádní oslavu! 🎂🥂"
 
-    Oba znamenáte 'lev' - takže místo kočičích her rovnou kousání do dortů! 🎂
+        - Pro smíšená jména (Zdeněk a Zděnka):
+          "Dnes slavíme Zdeňka a Zděnku! 👫
+          ...
+          Tak co, znáte nějakého Zdeňka nebo Zděnku? Označte je v komentářích a popřejte jim parádní oslavu! 🎂🥂"
 
-    Leoš Mareš rozjede každou show jako uragán 🎤, zatímco Leo DiCaprio, no ten je prostě král všeho... včetně zmrzlinářství na pláži! 😎
+        Příklad výstupu:
+        Dnes slavíme Leoše a Leju! 🦁✨
 
-    Tak co, znáte nějakého Leoše nebo Lea? Označte je v komentářích a popřejte jim parádní oslavu hodnou lvího krále! 🎂🥂
-    """
+        Leoš i Leja mají řecký původ - to je jasný, s tímhle jménem musíte umět ovládat blesky, minimálně gril! ⚡️
+
+        Oba znamenáte 'lev' - takže místo kočičích her rovnou kousání do dortů! 🎂
+
+        Leoš Mareš rozjede každou show jako uragán 🎤, zatímco Leja Josefová dokazuje, že lvice umí být stejně hlasité! 🎶
+
+        Tak co, znáte nějakého Leoše nebo Leju? Označte je v komentářích a popřejte jim parádní oslavu hodnou lvího krále a královny! 🎂🥂
+        """
     return prompt
 
 def main():
@@ -222,9 +242,6 @@ def main():
     # 📤 Odeslání na Instagram
     print("🚀 Publikuji příspěvek na Instagram...")
     post_album_to_instagram(image_paths, description)
-
-
-
 
 
 
