@@ -1,12 +1,19 @@
+import random
+from io import BytesIO
+
+from PIL import Image
 from dotenv import load_dotenv
 import os
 import requests
 import json
 
+from together import Together
+
 # Načtení API klíče z .env souboru
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 NASA_API_KEY = os.getenv("NASA_API_KEY")
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 
 def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
@@ -60,6 +67,53 @@ def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
 
     return None
 
+
+def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", max_retries=3):
+    """
+    Získává odpověď od Together AI API pomocí DeepSeek modelu.
+
+    Args:
+        prompt (str): Textový vstup (prompt) pro AI
+        model (str): Použitý model (výchozí je deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free)
+        max_retries (int): Maximální počet opakování při chybě
+
+    Returns:
+        str: Odpověď od AI nebo None pokud selže
+    """
+
+    # Inicializace Together klienta
+    client = Together(api_key=TOGETHER_API_KEY)  # Předpokládá, že TOGETHER_API_KEY je globální proměnná
+
+    for attempt in range(max_retries):
+        try:
+            # Odeslání požadavku na API
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+
+            # Zpracování odpovědi
+            if response and response.choices and len(response.choices) > 0:
+                full_response = response.choices[0].message.content
+                # Odstranění <think> části pokud existuje
+                if "<think>" in full_response and "</think>" in full_response:
+                    return full_response.split("</think>")[-1].strip()
+                return full_response
+            else:
+                print(f"Pokus {attempt + 1}: Prázdná odpověď z API")
+
+        except Exception as e:  # Zachycení všech výjimek, protože Together knihovna může vyhodit různé typy
+            print(f"Pokus {attempt + 1} selhal s chybou: {str(e)}")
+            if attempt == max_retries - 1:
+                return None
+
+    return None
+
 def get_nasa_apod():
     """
     Načte dnešní data APOD (Astronomický snímek dne) z NASA API.
@@ -88,13 +142,109 @@ def get_nasa_apod():
         return None
 
 
-if __name__ == "__main__":
-    names = "Jan, Marie"
-    prompt = f"vygeneruj text pouze a jenom v češtině pro lidi co slaví svátek s jménem {names} (ty jména neupravuj neženštuj nic) zpracuj to nějako vtipně klidně použij emoji napiš jejich původ horoskop a hezky jim popřej k svátku zpracuj to jako popisek pod fotku na nic se neptej jen piš"
+def generate_ai_background(width=1080, height=1080):
+    """Generuje pozadí s podrobným logováním"""
+    if not TOGETHER_API_KEY:
+        print("❌ [AI] Chybí TOGETHER_API_KEY v .env")
+        return None
 
-    response = generate_with_gemini(prompt)
-    if response:
-        print("Generated description:")
-        print(response)
-    else:
-        print("Failed to generate description")
+    MODEL_CONFIG = {
+        "model": "black-forest-labs/FLUX.1-schnell-Free",
+        "steps": 4,
+        "size": 1024,
+        "prompts": [
+          "calm autumn landscape with falling leaves and soft light",
+          "cozy corner with pillows and candles under dim lighting",
+          "forest clearing covered in morning mist",
+          "minimalist room with natural tones and soft lighting",
+          "mountain cabin in winter with glowing window and snowy landscape",
+          "soft sunlight streaming through curtains",
+          "peaceful lake surrounded by trees at sunset",
+          "Scandinavian interior with muted lights",
+          "reading nook with a blanket, book, and hot tea",
+          "quiet morning forest with dewdrops on leaves",
+          "relaxing café with wooden furniture and plants",
+          "neutral background with watercolor texture in beige tones",
+          "night cityscape from afar with gentle bokeh",
+          "cozy bed with duvets and soft lamp light",
+          "old wooden table with a cup of coffee and a journal",
+          "view from a window on a rainy day",
+          "lightly snow-covered fields under a grey sky",
+          "forest path with soft moss and diffused light",
+          "cozy fireplace corner with a fluffy rug",
+          "minimalist background with pastel shades",
+          "mountain valley in mist and morning light",
+          "soft blanket draped over a warm-toned sofa",
+          "quiet beach at sunrise with no people",
+          "blooming meadow in pastel colors",
+          "rainy window with blurred droplets and warm indoor light",
+          "modern room with houseplants and an aroma diffuser",
+          "quiet evening riverside with lanterns",
+          "library with old books and soft lighting",
+          "waving wheat in golden light",
+          "glowing lanterns hanging in a garden at dusk",
+          "soft textures of beige and grey fabrics",
+          "relaxed afternoon with coffee on the terrace",
+          "blurred light effects in warm tones",
+          "quiet alley in an old town with no people",
+          "aerial view of foggy mountains",
+          "wooden interior with natural decorations",
+          "cozy lantern light in the garden at twilight",
+          "pastel sunset over water surface",
+          "calm tones of grey, beige, and white in a natural style",
+          "tea ceremony in a Japanese room",
+          "shadow of a tree falling on a wall",
+          "green houseplants on a windowsill in morning light",
+          "road fading into fog with autumn trees",
+          "cozy kitchen with herbs and warm lighting",
+          "neutral marble texture with soft reflections",
+          "old radio and a tea mug on a wooden cabinet",
+          "half-empty café with a retro feel",
+          "peaceful evening on a balcony with a blanket and tea",
+          "zen garden with stones and sand",
+          "soft pastel colors and blurred light"
+        ]
+    }
+
+    try:
+        client = Together(api_key=TOGETHER_API_KEY)
+
+        prompt = random.choice(MODEL_CONFIG["prompts"])
+        prompt = "hyper realistic environment, "+prompt
+
+
+        response = client.images.generate(
+            prompt=prompt,
+            model=MODEL_CONFIG["model"],
+            steps=MODEL_CONFIG["steps"],
+            width=MODEL_CONFIG["size"],
+            height=MODEL_CONFIG["size"],
+            n=1
+        )
+
+        if not response or not response.data:
+            print("❌ [AI] API nevrátilo žádná data")
+            return None
+
+        image_url = response.data[0].url
+        print(f"📝 [AI] Použitý prompt: '{prompt}'")
+        print(f"🔗 [AI] Kompletní URL obrázku:\n{image_url}")  # Vypíše celou URL
+
+        print("⬇️ [AI] Stahuji obrázek...")
+        img_response = requests.get(image_url, timeout=10)
+        img_response.raise_for_status()
+
+        img = Image.open(BytesIO(img_response.content))
+        print(f"🖼️ [AI] Staženo: {img.size} ({img.format}), mód: {img.mode}")
+
+        if img.size != (width, height):
+            print(f"🔄 [AI] Změna velikosti na {width}x{height}")
+            img = img.resize((width, height), Image.Resampling.LANCZOS)
+
+        return img.convert('RGBA')
+
+    except Exception as e:
+        print(f"❌ [AI] Chyba při generování:")
+        import traceback
+        traceback.print_exc()
+        return None
