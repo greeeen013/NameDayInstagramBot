@@ -1,4 +1,4 @@
-from api_handler import generate_with_gemini
+from api_handler import generate_with_deepseek
 from instagram_bot import post_album_to_instagram
 from name_info import get_name_details, get_today_names_and_holidays, letter_map
 from image_generator import generate_image_for, generate_nasa_image
@@ -92,63 +92,46 @@ def generate_name_prompt(names, names_info):
     separator = '-' * 50 + newline  # Vytvoříme separator s newline
 
     prompt = f"""
-        Napiš Instagram post v češtině oslavující jména {names_list} podle těchto pravidel:
+        Napiš Instagram post v češtině oslavující jméno {names_list} podle těchto pravidel:
 
         1. FORMÁT (žádné odsazení, jen odstavce):
         "Dnes slavíme {names_list}! [emoji]"
 
         [Prázdný řádek]
 
-        [Odstavec o původu - spoj pokud stejný, s vtipem]
+        [Odstavec o původu - s vtipem]
         [Prázdný řádek] 
 
-        [Odstavec o významu - spoj pokud stejný, s vtipem]
+        [Odstavec o významu - s vtipem]
         [Prázdný řádek]
 
         [Odstavec o osobnostech - 1-2 věty s emoji]
         [Prázdný řádek]
 
-        "Tak co, znáte nějakého {names_list}? Označte {'je' if len(names) > 1 else ('ho' if gender == 'male' else 'ji')} v komentářích a popřejte {'jim' if len(names) > 1 else ('mu' if gender == 'male' else 'jí')} parádní oslavu! 🎂🥂"
+        "Tak co, znáte nějakého/nějakou {names_list}? Označte ho/ji v komentářích a popřejte mu/jí parádní oslavu! 🎂🥂"
 
-        2. PRAVIDLA:
-        - Žádné odsazení, žádné tabulátory
-        - Mezi odstavci vždy prázdný řádek
-        - Max 10 emoji
-        - Vtipné, ale přirozené komentáře
-        - Žádné hashtagy, formátování
-        - Pokud stejný původ/význam, spoj do jednoho odstavce
-        - POUŽÍVEJ SPRÁVNÉ RODOVÉ TVARY PODLE POHLAVÍ JMÉNA
-        - Pokud je jméno ženské, používej ženské tvary (např. "oslavujeme Zděnku", "popřejte jí")
-        - Pokud je jméno mužské, používej mužské tvary (např. "oslavujeme Zdeňka", "popřejte mu")
-        - U vícero jmen rozlišuj rody a používej správné skloňování
+        2. SPECIFICKÉ POKYNY PRO ZDEŇKU:
+        - Jméno Zdeňka je ŽENSKÉ, používej výhradně ženské tvary
+        - I když jméno vypadá podobně jako mužské Zdeněk, vždy používej ženské skloňování
+        - Správné tvary: "oslavujeme Zdeňku", "popřejte jí", "znáte nějakou Zdeňku"
 
-        3. PŘÍKLADY SPRÁVNÉHO POUŽITÍ:
-        - Pro ženské jméno (Zděnka):
-          "Dnes slavíme Zděnku! 🌸
-          ...
-          Tak co, znáte nějakou Zděnku? Označte ji v komentářích a popřejte jí parádní oslavu! 🎂🥂"
+        3. PŘÍKLAD SPRÁVNÉHO VÝSTUPU:
+        Dnes slavíme Zdeňku! 🌸
 
-        - Pro mužské jméno (Zdeněk):
-          "Dnes slavíme Zdeňka! 🎩
-          ...
-          Tak co, znáte nějakého Zdeňka? Označte ho v komentářích a popřejte mu parádní oslavu! 🎂🥂"
+        Zdeňka má slovanský původ - stejně jako její "bratr" Zdeněk, ale na rozdíl od něj nosí jméno s něžnou příponou -ka. 
 
-        - Pro smíšená jména (Zdeněk a Zděnka):
-          "Dnes slavíme Zdeňka a Zděnku! 👫
-          ...
-          Tak co, znáte nějakého Zdeňka nebo Zděnku? Označte je v komentářích a popřejte jim parádní oslavu! 🎂🥂"
+        Jméno Zdeňka znamená "ta, která přináší slávu". Takže pokud ještě nejste slavné, Zdeňky, máte to doslova v popisu práce! ✨
 
-        Příklad výstupu:
-        Dnes slavíme Leoše a Leju! 🦁✨
+        Zdeňka Žádníková-Volková je česká herečka, která dokazuje, že ženy se jménem Zdeňka umí zazářit na jevišti i ve filmu. 🎭
 
-        Leoš i Leja mají řecký původ - to je jasný, s tímhle jménem musíte umět ovládat blesky, minimálně gril! ⚡️
+        Tak co, znáte nějakou Zdeňku? Označte ji v komentářích a popřejte jí parádní oslavu! 🎂🥂
 
-        Oba znamenáte 'lev' - takže místo kočičích her rovnou kousání do dortů! 🎂
-
-        Leoš Mareš rozjede každou show jako uragán 🎤, zatímco Leja Josefová dokazuje, že lvice umí být stejně hlasité! 🎶
-
-        Tak co, znáte nějakého Leoše nebo Leju? Označte je v komentářích a popřejte jim parádní oslavu hodnou lvího krále a královny! 🎂🥂
-        """
+        4. DŮLEŽITÉ:
+        - Žádné tagy ani jiné technické poznámky
+        - Pouze čistý výstup ve formátu Instagram postu
+        - Musí být přirozený, vtipný a vhodný pro české publikum
+        - Musí určit správný rod pro to jméno
+    """
     return prompt
 
 def main():
@@ -203,7 +186,8 @@ def main():
         )
 
     # 🧠 Vygeneruj AI popis
-    ai_response = generate_with_gemini(prompt)
+    ai_response = generate_with_deepseek(prompt)
+    print(ai_response)
     if not ai_response:
         ai_response = f"🎉 Dnes slavíme {' a '.join(names) if names else holiday}! 🎉\n\nPřipojte se k oslavám tohoto výjimečného dne!"
         print("⚠️ AI odpověď nebyla dostupná. Používám výchozí text.")
@@ -215,7 +199,7 @@ def main():
         print("🌌 NASA obrázek přidán do příspěvku.")
         if nasa_explanation:
             print("🌍 Překládám popis NASA obrázku...")
-            translated = generate_with_gemini("Přelož následující text z angličtiny do češtiny a uprav jej jako stručný instagramový popisek."
+            translated = generate_with_deepseek("Přelož následující text z angličtiny do češtiny a uprav jej jako stručný instagramový popisek."
                                                 "Zachovej pouze informativní obsah, odstraň pozvánky na akce nebo osobní oslovení."
                                                 "Text musí být přirozený, věcný a vhodný pro české publikum a nesmí obsahovat žádné formátovací symboly (hvězdičky, hashtagy, pomlčky na začátku řádku apod.). Pouze čistý text."
 
@@ -230,6 +214,7 @@ def main():
                                                 f"{nasa_explanation}")
             if translated:
                 ai_response += f"\n📷 Fotka z vesmíru:\n{translated}"
+            print(translated)
 
     # 📝 Připrav finální popis
     sources =("\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)")
