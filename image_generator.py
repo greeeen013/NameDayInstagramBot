@@ -3,7 +3,7 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import os
 
-from api_handler import get_nasa_apod
+from api_handler import get_nasa_apod, generate_ai_background
 
 from pathlib import Path
 import requests
@@ -36,11 +36,29 @@ def generate_gradient_background(width, height):
             image.putpixel((x, y), (r, g, b))
     return image.convert('RGBA')
 
+
+# ----------------------------------------
+# Generuje AI pozadí nebo záložní gradient
+# ----------------------------------------
+def generate_background(width, height):
+    print("🔄 Pokus o generování AI pozadí...")
+    ai_background = generate_ai_background(width, height)
+
+    if ai_background is None:
+        print("⚠️ AI selhalo, generuji gradient")
+        bg = generate_gradient_background(width, height)
+        print(f"🔵 Vygenerován gradient: {bg.size}")
+        return bg
+
+    print(f"🟢 Úspěšně vygenerováno AI pozadí: {ai_background.size}")
+    return ai_background
+
+
 #----------------------------------------
 # Vytvoří průhledný čtverec (overlay) uprostřed
 # padding 0.1 znamená box 90% velikosti
 #----------------------------------------
-def create_overlay_square(image, padding=0.1, opacity=0.25):
+def create_overlay_square(image, padding=0.1, opacity=0.75):
     w, h = image.size
     size = int(min(w, h) * (1 - padding))
     overlay = Image.new('RGBA', (size, size), (255, 255, 255, int(255 * opacity)))
@@ -187,7 +205,7 @@ def generate_image_for(name, info=None):
     output_dir = Path(BASE_DIR) / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    img = generate_gradient_background(1080, 1080)
+    img = generate_background(1080, 1080)
     draw_texts(img, name, info)
     filename = f"{datetime.now().strftime('%Y-%m-%d')}_{name}.png"
 
