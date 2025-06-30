@@ -136,8 +136,35 @@ def draw_texts(image, name, info=None):
     font_for_name = fonts['name_smaller'] if len(name) >= 12 else fonts['name']
 
     if info is None:
-        # 3) Svátek víc uprostřed
-        draw_centered(draw, name, font_for_name, center_x, h // 2)
+        # 3) Svátek uprostřed – zalomení textu svátku, pokud přesahuje 10 znaků
+        if len(name) > 10:
+            lines = []
+            text = name  # kopie textu, který budeme postupně zkracovat
+            limit = 10
+            while len(text) > limit:
+                # Zkusit najít mezeru *po* 10. znaku
+                space_index = text.find(' ', limit)
+                # Pokud není mezera po limitu, zkusit poslední mezeru před limitem
+                if space_index == -1:
+                    space_index = text.rfind(' ', 0, limit + 1)
+                # Žádná mezera v dosahu -> ukončit cyklus
+                if space_index == -1:
+                    break
+                # Vezmeme část textu před mezerou jako jeden řádek
+                line = text[:space_index]
+                lines.append(line.strip())  # .strip() pro odstranění případné mezery na konci
+                text = text[space_index + 1:]  # zbytek textu po této mezeře
+            # Přidat poslední část (poslední řádek)
+            if text:
+                lines.append(text.strip())
+            # Vykreslit každý řádek centrovaně, posunutý vertikálně
+            line_count = len(lines)
+            ascent, descent = font_for_name.getmetrics()
+            line_height = ascent + descent
+            # Horní řádek posuneme tak, aby blok textu byl vystředěný
+            start_y = h // 2 - ((line_count - 1) * line_height) // 2
+            for i, line in enumerate(lines):
+                draw_centered(draw, line, font_for_name, center_x, start_y + i * line_height)
     else:
         # 3) Jméno
         draw_centered(draw, name, font_for_name, center_x, y_name)
