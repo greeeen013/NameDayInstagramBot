@@ -6,6 +6,32 @@ import os
 from datetime import datetime, timedelta
 
 
+def get_prompt(is_holiday, holiday=None):
+    if is_holiday:
+        return (
+                f"Napiš kreativní, vtipný, ale zároveň uctivý popisek na Instagram v češtině, který oslavuje významný den: {holiday}. "
+                f"Začni oslavnou větou s emojis, např. 🎉 Dnes si připomínáme {holiday}! 🇨🇿 – udrž tón slavnostní, ale svěží. "
+                f"Na druhý řádek napiš odlehčené shrnutí, co tento den pro Česko znamená. "
+                f"Na třetí řádek přidej zajímavou historickou souvislost. "
+                f"Na čtvrtý řádek 2–3 osobnosti nebo symboly spojené s tímto svátkem. "
+                f"Závěrem výzvu k akci: 'Jak si připomínáte {holiday} vy? ✨'. "
+                f"Tón: stylový, přirozený, sociálně-síťový. Emojis používej střídmě."
+            )
+    else:
+        return (
+                "Napiš kreativní, vtipný, ale zároveň uctivý popisek na Instagram v češtině, který oslavuje dnešní jmeniny. "
+                "Začni oslavnou větou s emojis, např. 🎉 Dnes slaví svátek [jména]! 🇨🇿 – udrž tón slavnostní, ale svěží. "
+                "Na druhý řádek napiš odlehčené shrnutí, co tato jména znamenají. "
+                "Na třetí řádek přidej zajímavou historickou souvislost nebo význam jmen. "
+                "Na čtvrtý řádek 2–3 osobnosti nebo symboly spojené s těmito jmény. "
+                "Závěrem výzvu k akci: 'Jak si připomínáte jmeniny vy? ✨'. "
+                "Tón: stylový, přirozený, sociálně-síťový. Emojis používej střídmě."
+            )
+
+
+
+
+
 def delete_old_png_files():
     """
     Smaže PNG soubory starší než 7 dní ve formátu YYYY-MM-DD*.png
@@ -144,8 +170,27 @@ def main():
     print("🍀 Načítám dnešní sváteční jména...")
     names, holidays = get_today_names_and_holidays()
     image_paths = []
+    if holidays == ['Den věrozvěstů Cyrila a Metoděje']:
+        names_info = []
+        print("🎉 Dnes slaví svátek Cyril a Metoděj!")
 
-    if names:
+        # Vygenerovat obrázek svátku
+        holiday = holidays[0]  # bereme první svátek, pokud jich je více
+        img_path = generate_image_for(holidays)
+        if img_path:
+            image_paths.append(img_path)
+
+        for name in ["Cyril", "Metoděj"]:
+            info = get_name_details(name, letter_map)
+            img_path = generate_image_for(name, info)
+            if img_path:
+                image_paths.append(img_path)
+                names_info.append(info)
+
+        get_prompt(True, holiday)
+
+
+    elif names:
         print("🎨 Generuji obrázky pro jména...")
         names_info = []
         for name in names:
@@ -157,7 +202,7 @@ def main():
 
         prompt = generate_name_prompt(names, names_info)
 
-    else:
+    elif holidays:
         print("ℹ️ Žádné jméno dnes neslaví. Kontroluji státní svátky...")
         names, holidays = get_today_names_and_holidays()
 
@@ -175,15 +220,7 @@ def main():
 
         image_paths.append(img_path)
 
-        prompt = (
-            f"Napiš kreativní, vtipný, ale zároveň uctivý popisek na Instagram v češtině, který oslavuje významný den: {holiday}. "
-            f"Začni oslavnou větou s emojis, např. 🎉 Dnes si připomínáme {holiday}! 🇨🇿 – udrž tón slavnostní, ale svěží. "
-            f"Na druhý řádek napiš odlehčené shrnutí, co tento den pro Česko znamená. "
-            f"Na třetí řádek přidej zajímavou historickou souvislost. "
-            f"Na čtvrtý řádek 2–3 osobnosti nebo symboly spojené s tímto svátkem. "
-            f"Závěrem výzvu k akci: 'Jak si připomínáte {holiday} vy? ✨'. "
-            f"Tón: stylový, přirozený, sociálně-síťový. Emojis používej střídmě."
-        )
+        prompt = get_prompt(True, holiday)
 
     # 🧠 Vygeneruj AI popis
     ai_response = generate_with_deepseek(prompt)
@@ -213,11 +250,11 @@ def main():
                                                 "Text ke zpracování:"
                                                 f"{nasa_explanation}")
             if translated:
-                ai_response += f"\n📷 Fotka z vesmíru:\n{translated}"
+                ai_response += f"\n\n📷 Fotka z vesmíru:\n{translated}"
             print(translated)
 
     # 📝 Připrav finální popis
-    sources =("\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)")
+    sources =("\n\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)")
     hashtags = (
         "\n\n#DnesMaSvatek #SvatekDnes #SvatekKazdyDen "
         "#CeskeJmeniny #Svatky #PoznejSvatky #DnesSlavi"
@@ -229,6 +266,7 @@ def main():
     post_album_to_instagram(image_paths, description)
 
 
+# TODO: upravit ai prompt pro jména, aby se tam poslal jeden prompt s jednim jmenem a vratil to
 
 if __name__ == "__main__":
     main()
