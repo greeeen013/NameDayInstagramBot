@@ -1,11 +1,14 @@
 import random
+from datetime import datetime
 from io import BytesIO
+from bs4 import BeautifulSoup
 
 from PIL import Image
 from dotenv import load_dotenv
 import os
 import requests
 import json
+import re
 
 from together import Together
 
@@ -66,7 +69,6 @@ def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
                 return None
 
     return None
-
 
 def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", max_retries=3):
     """
@@ -140,7 +142,6 @@ def get_nasa_apod():
     except Exception as e:
         print(f"❌ [api_handler] Výjimka při volání NASA APOD API: {e}")
         return None
-
 
 def generate_ai_background(width=1080, height=1080):
     """Generuje pozadí s podrobným logováním"""
@@ -248,3 +249,141 @@ def generate_ai_background(width=1080, height=1080):
         import traceback
         traceback.print_exc()
         return None
+
+
+def clean_event_name(text):
+    """Vyčistí název události od závorek a jejich obsahu"""
+    # Odstraníme hranaté závorky s čísly [123]
+    text = re.sub(r'\[\d+\]', '', text)
+    # Odstraníme kulaté závorky a jejich obsah (I Forgot Day)
+    text = re.sub(r'\([^)]*\)', '', text)
+    # Odstraníme přebytečné mezery a ořízneme text
+    return ' '.join(text.split()).strip()
+
+
+def get_todays_international_days():
+    # České názvy měsíců
+    czech_months = {
+        1: 'leden', 2: 'únor', 3: 'březen', 4: 'duben', 5: 'květen',
+        6: 'červen', 7: 'červenec', 8: 'srpen', 9: 'září',
+        10: 'říjen', 11: 'listopad', 12: 'prosinec'
+    }
+
+    # Získání aktuálního data
+    today = datetime.today()
+    day = 13
+    month = 12
+    today_str = f"{day}. {czech_months[month]}"
+    #print(f"[DEBUG] Hledám dnešní datum: {today_str}")
+
+    try:
+        # Stažení stránky
+        url = "https://cs.wikipedia.org/wiki/Mezin%C3%A1rodn%C3%AD_dny_a_roky"
+        #print(f"[DEBUG] Stahuji stránku: {url}")
+        response = requests.get(url)
+        response.raise_for_status()
+
+        # Parsování HTML
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Nalezení tabulky mezinárodních dnů
+        #print("[DEBUG] Hledám tabulku mezinárodních dnů...")
+        tables = soup.find_all('table', {'class': 'wikitable'})
+        table = None
+        for t in tables:
+            if "Datum" in str(t):
+                table = t
+                break
+        if not table:
+            #print("[DEBUG] Tabulka nebyla nalezena!")
+            return []
+        #print("[DEBUG] Tabulka nalezena")
+
+        events = []
+        found_today = False
+        collect_events = False
+
+        # Procházení řádků tabulky
+        #print("[DEBUG] Procházím řádky tabulky...")
+        for row in table.find_all('tr'):
+            cells = row.find_all('td')
+            if not cells:
+                continue
+
+            # Zpracování prvního sloupce (datum)
+            date_cell = cells[0]
+            date_text = date_cell.get_text().strip()
+            #print(f"[DEBUG] Zpracovávám řádek s datem/textem: {date_text}")
+
+            # Zvláštní případ - když je název dne přímo v date_cell
+            if ("den" in date_text or "dny" in date_text) and found_today:
+                clean_text = clean_event_name(date_text)
+                #print(f"[DEBUG] Nalezen den přímo v datovém sloupci: {clean_text}")
+                events.append(clean_text)
+                continue
+
+            # Kontrola formátu data (den. měsíc)
+            if '.' in date_text:
+                if found_today and date_text != today_str:
+                    #print(f"[DEBUG] Nalezeno další datum: {date_text}, ukončuji hledání")
+                    break
+
+                if date_text == today_str:
+                    found_today = True
+                    collect_events = True
+                    #print("[DEBUG] Nalezeno dnešní datum! Začínám sbírat události...")
+
+            # Sbírání událostí pro dnešní datum
+            if collect_events and len(cells) > 1:
+                event_cell = cells[1]
+                event_text = event_cell.get_text().strip()
+                #print(f"[DEBUG] Zpracovávám událost: {event_text}")
+
+                # Hledání názvů obsahujících "den" nebo "dny"
+                if "den" in event_text or "dny" in event_text:
+                    #print("[DEBUG] Nalezena událost obsahující 'den' nebo 'dny'")
+                    # Extrakce jednotlivých názvů mezinárodních dnů
+                    for sub in event_cell.find_all(['a', 'sup']):
+                        sub_text = sub.get_text().strip()
+                        if "den" in sub_text or "dny" in sub_text:
+                            clean_text = clean_event_name(sub_text)
+                            #print(f"[DEBUG] Přidávám událost: {clean_text}")
+                            events.append(clean_text)
+
+                    # Přidání celého textu, pokud neobsahuje podprvky
+                    if not any("den" in e or "dny" in e for e in events):
+                        clean_text = clean_event_name(event_text)
+                        #print(f"[DEBUG] Přidávám celou událost: {clean_text}")
+                        events.append(clean_text)
+
+        # Zpracování událostí
+        #print("[DEBUG] Filtruji a upravuji výsledné události...")
+        final_events = []
+        for event in events:
+            # Rozdělení textů s čárkami
+            if ',' in event:
+                for e in event.split(','):
+                    e = clean_event_name(e.strip())
+                    if "den" in e or "dny" in e:
+                        final_events.append(e)
+            else:
+                final_events.append(event)
+
+        # Odstranění duplicit a prázdných řetězců
+        final_events = list(set([e for e in final_events if e]))
+        #print(f"[DEBUG] Konečný seznam událostí: {final_events}")
+        return final_events
+
+    except Exception as e:
+        print(f"[get_todays_international_days] Chyba při zpracování: {e}")
+        return []
+
+if __name__ == "__main__":
+    # Testování funkce
+    events = get_todays_international_days()
+    if events:
+        print("Dnešní mezinárodní dny:")
+        for event in events:
+            print(f"- {event}")
+    else:
+        print("Žádné mezinárodní dny dnes nenalezeny.")
