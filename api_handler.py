@@ -271,8 +271,8 @@ def get_todays_international_days():
 
     # Získání aktuálního data
     today = datetime.today()
-    day = 13
-    month = 12
+    day = today.day
+    month = today.month
     today_str = f"{day}. {czech_months[month]}"
     #print(f"[DEBUG] Hledám dnešní datum: {today_str}")
 
