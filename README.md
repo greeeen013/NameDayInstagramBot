@@ -56,6 +56,10 @@ Each day, a fresh and engaging Instagram post is created without any human inter
 
 ## 📸 Output samples
 
+<img width="808" height="910" alt="image" src="https://github.com/user-attachments/assets/55ed6859-335e-43fc-8a9e-8287bf13b82e" />
+
+<img width="1296" height="898" alt="image" src="https://github.com/user-attachments/assets/f2adda0e-6b88-452c-8909-afbe545b1f18" />
+
 ---
 
 ## 💬 Summary  
