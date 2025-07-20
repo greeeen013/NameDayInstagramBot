@@ -200,7 +200,6 @@ def main():
             # ... pokračuj v postování obrázku
     else:
         print("Dnes není žádný mezinárodní den. Používám standardní obrázek.")
-        #image_path = image_generator.generate_default_image()  # Vaše existující funkce
 
     # Generování textu
     ai_response = generate_all_prompts(names, holidays, names_info)

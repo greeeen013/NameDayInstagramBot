@@ -29,7 +29,8 @@ def get_today_names_and_holidays():
             continue
         years_text = cols[0].get_text(strip=True)
         # Hledáme řádek končící "-2025"
-        if years_text.endswith("-2025"):
+        today_year = str(datetime.now().year)
+        if years_text.endswith(today_year):
             # Druhý sloupec obsahuje text
             cell = cols[1]
             # Najdi všechny odkazy (klikatelné jména)
