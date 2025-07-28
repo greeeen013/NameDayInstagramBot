@@ -2,12 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from datetime import datetime
-from SaveNameStats import get_name_stats_failsafe
-
-dny_cesky = [
-        "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota", "Neděle"
-    ]
-
+from name_utils import letter_map, dny_cesky
 
 def get_today_names_and_holidays(dnes=datetime.now()):
     url = f"https://kalendar.beda.cz/den-v-kalendari?month={dnes.month}&day={dnes.day}"
@@ -49,16 +44,6 @@ def get_today_names_and_holidays(dnes=datetime.now()):
                         events_list.append(text)
     return names_list, events_list
 
-letter_map = {
-    "A": 1, "Á": 2, "Ą": 3, "B": 4, "C": 5, "Č": 6, "Ć": 7, "Ç": 8,
-    "D": 9, "Ď": 10, "Đ": 11, "E": 12, "É": 13, "Ě": 14, "F": 15, "G": 16,
-    "H": 17, "I": 18, "J": 19, "K": 20, "L": 21, "Ĺ": 22, "Ł": 23, "M": 24,
-    "N": 25, "Ň": 26, "O": 27, "Ó": 28, "Ö": 29, "Ő": 30, "P": 31, "Q": 32,
-    "R": 33, "Ř": 34, "Ŕ": 35, "S": 36, "Š": 37, "Ś": 38, "Ş": 39, "T": 40,
-    "Ť": 41, "Ţ": 42, "U": 43, "Ú": 44, "Ü": 45, "Ű": 46, "V": 47, "W": 48,
-    "X": 49, "Y": 50, "Z": 51, "Ž": 52, "Ż": 53, "¬": 54
-}
-
 
 def get_name_details(name, letter_map, use_failsafe=True):
     """Získává detaily jména s možností fallbacku na lokální data"""
@@ -71,9 +56,6 @@ def get_name_details(name, letter_map, use_failsafe=True):
 
         if letter_key not in letter_map:
             print(f"⚠️ Písmeno '{letter_key}' pro jméno {name} nebylo nalezeno v mapě.")
-            if use_failsafe:
-                return get_name_stats_failsafe(name, datetime.now())
-            return None
 
         letter_id = letter_map[letter_key]
 
@@ -82,9 +64,6 @@ def get_name_details(name, letter_map, use_failsafe=True):
         res = requests.get(url, timeout=10)
         if res.status_code != 200:
             print(f"❌ Nelze načíst seznam jmen pro písmeno {letter_key}")
-            if use_failsafe:
-                return get_name_stats_failsafe(name, datetime.now())
-            return None
 
         soup = BeautifulSoup(res.text, "html.parser")
 
@@ -92,9 +71,6 @@ def get_name_details(name, letter_map, use_failsafe=True):
         jmena_div = soup.find("div", id="tab_overflow_jmeno")
         if not jmena_div:
             print("❌ Nenalezen div s jmény (tab_overflow_jmeno)")
-            if use_failsafe:
-                return get_name_stats_failsafe(name, datetime.now())
-            return None
 
         # Najdi všechny buňky s třídou tab_vyplneny
         name_cells = jmena_div.find_all("td", class_="tab_vyplneny")
@@ -106,9 +82,6 @@ def get_name_details(name, letter_map, use_failsafe=True):
                 match = re.search(r"TabClick\((\d+),\s*['\"]jmeno['\"]\)", onclick)
                 if not match:
                     print(f"❌ Nenalezeno ID pro jméno {name_text}")
-                    if use_failsafe:
-                        return get_name_stats_failsafe(name, datetime.now())
-                    return None
 
                 name_id = match.group(1)
                 # Načtení detailní stránky
@@ -116,9 +89,6 @@ def get_name_details(name, letter_map, use_failsafe=True):
                 res = requests.get(detail_url, timeout=10)
                 if res.status_code != 200:
                     print("❌ Nelze načíst detail jména.")
-                    if use_failsafe:
-                        return get_name_stats_failsafe(name, datetime.now())
-                    return None
 
                 detail_soup = BeautifulSoup(res.text, "html.parser")
                 header = detail_soup.find("span", {"class": "hlavicka"})
@@ -126,18 +96,12 @@ def get_name_details(name, letter_map, use_failsafe=True):
 
                 if not header:
                     print("❌ Informace o jménu nenalezeny.")
-                    if use_failsafe:
-                        return get_name_stats_failsafe(name, datetime.now())
-                    return None
 
                 # Zpracování statistik
                 header_text = header.get_text()
                 numbers = re.findall(r'\d+', header_text)
                 if len(numbers) < 3:
                     print("❌ Nepodařilo se parsovat statistiky pro jméno.")
-                    if use_failsafe:
-                        return get_name_stats_failsafe(name, datetime.now())
-                    return None
 
                 count = int("".join(numbers[0:-2])) if len(numbers) > 3 else int(numbers[0])
                 rank = int(numbers[-2])
@@ -165,12 +129,6 @@ def get_name_details(name, letter_map, use_failsafe=True):
                 }
 
         print(f"❌ Jméno '{name}' nebylo nalezeno na stránce písmene {letter_key}.")
-        if use_failsafe:
-            return get_name_stats_failsafe(name, datetime.now())
-        return None
 
     except Exception as e:
         print(f"❌ Neočekávaná chyba při získávání statistik pro {name}: {str(e)}")
-        if use_failsafe:
-            return get_name_stats_failsafe(name, datetime.now())
-        return None

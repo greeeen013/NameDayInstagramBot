@@ -1,7 +1,9 @@
 from api_handler import generate_with_deepseek, get_todays_international_days
 from instagram_bot import post_album_to_instagram
-from name_info import get_name_details, get_today_names_and_holidays, letter_map
+from name_info import get_name_details, get_today_names_and_holidays
 from image_generator import generate_image_for, generate_nasa_image, generate_international_day_image
+from name_utils import letter_map
+from SaveNameStats import get_name_stats_failsafe
 import os
 from datetime import datetime, timedelta
 
@@ -165,15 +167,16 @@ def main():
         for name in names:
             try:
                 info = get_name_details(name, letter_map)
+                if info is None:  # Explicitní kontrola None
+                    info = get_name_stats_failsafe(name, datetime.now())
             except Exception as e:
                 print(f"⚠️ Chyba při získávání statistik: {e}")
-                info = None
+                info = get_name_stats_failsafe(name, datetime.now())
 
             if info:
                 names_info.append(info)
                 img_path = generate_image_for(name, info)
             else:
-                # Fallback bez statistik
                 img_path = generate_image_for(name)
                 names_info.append({})
 

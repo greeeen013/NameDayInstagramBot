@@ -2,9 +2,9 @@
 import os
 import json
 from datetime import datetime, timedelta
-from name_info import get_today_names_and_holidays, get_name_details, letter_map
+from name_info import get_today_names_and_holidays, get_name_details
+from name_utils import letter_map
 
-# Cesta k souboru s uloženými statistikami
 STATS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'name_stats.json')
 
 
@@ -58,7 +58,7 @@ def load_name_stats():
 
 
 def get_name_stats_failsafe(name, date):
-    """Zkusí získat statistiky jména z lokálního uložiště"""
+    """Získává statistiky z lokálního úložiště"""
     date_str = date.strftime("%Y-%m-%d")
     stats = load_name_stats()
 
@@ -68,6 +68,7 @@ def get_name_stats_failsafe(name, date):
 
     print(f"⚠️ [Failsafe] Statistiky pro {name} ({date_str}) nebyly nalezeny")
     return None
+
 
 
 if __name__ == "__main__":
