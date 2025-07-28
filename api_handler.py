@@ -116,10 +116,11 @@ def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-
 
     return None
 
+
 def get_nasa_apod():
     """
     Načte dnešní data APOD (Astronomický snímek dne) z NASA API.
-    Vrací slovník s 'hdurl' a 'vysvětlení', nebo None v případě chyby.
+    Vrací slovník s 'hdurl' a 'vysvětlení', nebo None v případě chyby nebo pokud má snímek copyright.
     """
     if not NASA_API_KEY:
         print("❌ [api_handler] NASA_API_KEY není nastaveno v .env souboru.")
@@ -130,6 +131,12 @@ def get_nasa_apod():
             print(f"❌ [api_handler] Chyba {res.status_code} při volání NASA APOD API.")
             return None
         data = res.json()
+
+        # Vrátit None pokud má snímek copyright
+        if "copyright" in data:
+            print("❌ [api_handler] Snímek má copyright, nelze použít.")
+            return None
+
         url = data.get("hdurl") or data.get("url")
         explanation = data.get("explanation")
         if not url or not explanation:
@@ -379,11 +386,12 @@ def get_todays_international_days():
         return []
 
 if __name__ == "__main__":
+    print(get_nasa_apod())
     # Testování funkce
-    events = get_todays_international_days()
-    if events:
-        print("Dnešní mezinárodní dny:")
-        for event in events:
-            print(f"- {event}")
-    else:
-        print("Žádné mezinárodní dny dnes nenalezeny.")
+    #events = get_todays_international_days()
+    #if events:
+    #    print("Dnešní mezinárodní dny:")
+    #    for event in events:
+    #        print(f"- {event}")
+    #else:
+    #    print("Žádné mezinárodní dny dnes nenalezeny.")
