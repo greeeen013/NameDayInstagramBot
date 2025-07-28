@@ -163,21 +163,43 @@ def main():
             image_paths.append(holiday_img)
 
         for name in names:
-            info = get_name_details(name, letter_map)
-            img_path = generate_image_for(name, info)
+            try:
+                info = get_name_details(name, letter_map)
+            except Exception as e:
+                print(f"⚠️ Chyba při získávání statistik: {e}")
+                info = None
+
+            if info:
+                names_info.append(info)
+                img_path = generate_image_for(name, info)
+            else:
+                # Fallback bez statistik
+                img_path = generate_image_for(name)
+                names_info.append({})
+
             if img_path:
                 image_paths.append(img_path)
-                names_info.append(info)
 
     # Normální případ - jména
     elif names:
         print("🎨 Generuji obrázky pro jména...")
         for name in names:
-            info = get_name_details(name, letter_map)
-            img_path = generate_image_for(name, info)
+            try:
+                info = get_name_details(name, letter_map)
+            except Exception as e:
+                print(f"⚠️ Chyba při získávání statistik: {e}")
+                info = None
+
+            if info:
+                names_info.append(info)
+                img_path = generate_image_for(name, info)
+            else:
+                # Fallback bez statistik
+                img_path = generate_image_for(name)
+                names_info.append({})
+
             if img_path:
                 image_paths.append(img_path)
-                names_info.append(info)
 
     # Pouze svátek
     elif holidays:
