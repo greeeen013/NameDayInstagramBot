@@ -310,8 +310,12 @@ def generate_international_day_image(day_name):
     }
 
     # Získání textu
-    display_text = day_name.replace("Mezinárodní den", "").replace("Den", "").strip().capitalize().replace(
-        "Světový den", "").strip().capitalize().replace("Evropský den", "").strip().capitalize()
+    display_text = (day_name
+                    .replace("Mezinárodní den", "").strip().capitalize()
+                    .replace("Den", "").strip().capitalize()
+                    .replace("Světový", "").strip().capitalize()
+                    .replace("Evropský den", "").strip().capitalize()
+                    .replace("den","").strip().capitalize())
 
     # Vylepšené zalomení textu
     def balanced_wrap(text):
