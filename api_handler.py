@@ -120,7 +120,7 @@ def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-
 def get_nasa_apod():
     """
     Načte dnešní data APOD (Astronomický snímek dne) z NASA API.
-    Vrací slovník s 'hdurl' a 'vysvětlení', nebo None v případě chyby nebo pokud má snímek copyright.
+    Vrací slovník s 'hdurl' a 'vysvětlení', nebo None v případě chyby.
     """
     if not NASA_API_KEY:
         print("❌ [api_handler] NASA_API_KEY není nastaveno v .env souboru.")
@@ -133,9 +133,9 @@ def get_nasa_apod():
         data = res.json()
 
         # Vrátit None pokud má snímek copyright
-        if "copyright" in data:
-            print("❌ [api_handler] Snímek má copyright, nelze použít.")
-            return None
+        #if "copyright" in data:
+        #    print("❌ [api_handler] Snímek má copyright, nelze použít.")
+        #    return None
 
         url = data.get("hdurl") or data.get("url")
         explanation = data.get("explanation")
@@ -287,7 +287,8 @@ def get_todays_international_days():
         # Stažení stránky
         url = "https://cs.wikipedia.org/wiki/Mezin%C3%A1rodn%C3%AD_dny_a_roky"
         #print(f"[DEBUG] Stahuji stránku: {url}")
-        response = requests.get(url)
+        headers = {"User-Agent": "NameDayInstagramBot/1.0 (https://github.com/greeeen013/NameDayInstagramBot)"}
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
 
         # Parsování HTML
@@ -388,10 +389,10 @@ def get_todays_international_days():
 if __name__ == "__main__":
     print(get_nasa_apod())
     # Testování funkce
-    #events = get_todays_international_days()
-    #if events:
-    #    print("Dnešní mezinárodní dny:")
-    #    for event in events:
-    #        print(f"- {event}")
+    events = get_todays_international_days()
+    if events:
+        print("Dnešní mezinárodní dny:")
+        for event in events:
+            print(f"- {event}")
     #else:
     #    print("Žádné mezinárodní dny dnes nenalezeny.")
