@@ -1,3 +1,5 @@
+import time
+
 from api_handler import generate_with_deepseek, get_todays_international_days
 from instagram_bot import post_album_to_instagram
 from name_info import get_name_details, get_today_names_and_holidays
@@ -186,7 +188,7 @@ def main():
     # Normální případ - jména
     elif names:
         print("🎨 Generuji obrázky pro jména...")
-        for name in names:
+        for idx, name in enumerate(names):
             try:
                 info = get_name_details(name, letter_map)
             except Exception as e:
@@ -203,6 +205,10 @@ def main():
 
             if img_path:
                 image_paths.append(img_path)
+
+            # počká 5 minut než bude další jméno
+            if idx != len(names) - 1:
+                time.sleep(300)
 
     # Pouze svátek
     elif holidays:
