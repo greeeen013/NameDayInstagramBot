@@ -50,8 +50,11 @@ def login():
             cl.inject_sessionid_to_public()
             print(f"✅ Přihlášeno pomocí uložené session: {SESSION_FILE}")
             return cl
-        except (LoginRequired, json.JSONDecodeError):
-            print("⚠️ Platnost session skončila, přihlašuji znovu...")
+        except (LoginRequired, json.JSONDecodeError, Exception) as e:
+            print(f"⚠️ Session vypršela: {e}")
+            # Smažte starou session
+            if SESSION_FILE.exists():
+                SESSION_FILE.unlink()
 
     try:
         code = None
