@@ -188,7 +188,7 @@ def main():
     # Normální případ - jména
     elif names:
         print("🎨 Generuji obrázky pro jména...")
-        for idx, name in enumerate(names):
+        for name in names:
             try:
                 info = get_name_details(name, letter_map)
             except Exception as e:
@@ -205,10 +205,6 @@ def main():
 
             if img_path:
                 image_paths.append(img_path)
-
-            # počká 5 minut než bude další jméno
-            if idx != len(names) - 1:
-                time.sleep(300)
 
     # Pouze svátek
     elif holidays:
