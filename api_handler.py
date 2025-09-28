@@ -18,6 +18,40 @@ GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 NASA_API_KEY = os.getenv("NASA_API_KEY")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
+import threading, time
+RATE_LOCK = threading.Lock()
+_RATE_STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".rate_state.json")
+_RATE_KEY = "image_generation_next_allowed"
+
+def _load_rate_state():
+    try:
+        with open(_RATE_STATE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_rate_state(state: dict):
+    tmp = _RATE_STATE_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(state, f)
+    os.replace(tmp, _RATE_STATE_PATH)
+
+def wait_for_image_window(min_secs: int = 300):
+    """
+    Zajistí, že od posledního povoleného startu generování uběhne aspoň min_secs.
+    Pokud je brzy, funkce počká do správného času a pak „zarezervuje“ další slot.
+    """
+    with RATE_LOCK:
+        state = _load_rate_state()
+        now = time.time()
+        next_allowed = float(state.get(_RATE_KEY, 0))
+        wait = max(0.0, next_allowed - now)
+        if wait > 0:
+            print(f"⏳ [rate-limit] Čekám {int(wait)} s na další generování obrázku…")
+            time.sleep(wait)
+        # rezervace dalšího povoleného startu: teď + 5 minut
+        state[_RATE_KEY] = time.time() + min_secs
+        _save_rate_state(state)
 
 def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
     """
@@ -155,6 +189,8 @@ def generate_ai_background(width=1080, height=1080):
     if not TOGETHER_API_KEY:
         print("❌ [AI] Chybí TOGETHER_API_KEY v .env")
         return None
+
+    wait_for_image_window(min_secs=300)
 
     MODEL_CONFIG = {
         "model": "black-forest-labs/FLUX.1-schnell-Free",
