@@ -238,6 +238,7 @@ def main():
     nasa_path, nasa_explanation = generate_nasa_image()
     if nasa_path:
         image_paths.append(nasa_path)
+        print("✔️ NASA obrázek přidán.")
         if nasa_explanation:
             translated = generate_with_deepseek(
                 "Přelož následující text z angličtiny do češtiny a uprav jej jako stručný instagramový popisek, klidně použij emoji ale nepoužívej žádný # ani _ ani *.\n"
