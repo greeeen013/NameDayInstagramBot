@@ -151,38 +151,53 @@ def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-
     return None
 
 
-def get_nasa_apod():
-    """
-    Načte dnešní data APOD (Astronomický snímek dne) z NASA API.
-    Vrací slovník s 'hdurl' a 'vysvětlení', nebo None v případě chyby.
-    """
+def get_nasa_apod(max_retries=3):
     if not NASA_API_KEY:
         print("❌ [api_handler] NASA_API_KEY není nastaveno v .env souboru.")
         return None
-    try:
-        res = requests.get(f"https://api.nasa.gov/planetary/apod?api_key={NASA_API_KEY}")
-        if res.status_code != 200:
-            print(f"❌ [api_handler] Chyba {res.status_code} při volání NASA APOD API.")
-            return None
-        data = res.json()
 
-        # Vrátit None pokud má snímek copyright
-        #if "copyright" in data:
-        #    print("❌ [api_handler] Snímek má copyright, nelze použít.")
-        #    return None
+    import time
+    from datetime import datetime, timedelta
 
-        url = data.get("hdurl") or data.get("url")
-        explanation = data.get("explanation")
-        if not url or not explanation:
-            print("❌ [api_handler] Chybí URL nebo explanation v odpovědi NASA.")
+    def _fetch(date_str=None):
+        base = "https://api.nasa.gov/planetary/apod"
+        params = {"api_key": NASA_API_KEY, "thumbs": "true"}
+        if date_str:
+            params["date"] = date_str
+        try:
+            res = requests.get(base, params=params, timeout=10)
+            return res
+        except Exception as e:
+            print(f"❌ [api_handler] Výjimka při volání NASA APOD API: {e}")
             return None
-        return {
-            "hdurl": url,
-            "explanation": explanation
-        }
-    except Exception as e:
-        print(f"❌ [api_handler] Výjimka při volání NASA APOD API: {e}")
+
+    # 1) Zkus dnešek s retry/backoff
+    for attempt in range(1, max_retries + 1):
+        res = _fetch()
+        if res and res.status_code == 200:
+            break
+        wait = min(2 ** attempt, 10)
+        code = res.status_code if res else "no-response"
+        body = res.text[:200] if (res and res.text) else ""
+        print(f"❌ [api_handler] Chyba {code} při volání NASA APOD API (pokus {attempt}/{max_retries}). {body}")
+        time.sleep(wait)
+    else:
+        # 2) Fallback – zkus včerejšek (často pomůže)
+        yesterday = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+        res = _fetch(yesterday)
+        if not res or res.status_code != 200:
+            code = res.status_code if res else "no-response"
+            print(f"❌ [api_handler] Fallback (včerejšek) selhal – kód {code}.")
+            return None
+
+    data = res.json()
+    # Vem hdurl/url/thumb (pro video)
+    url = data.get("hdurl") or data.get("url") or data.get("thumbnail_url")
+    explanation = data.get("explanation")
+    if not url or not explanation:
+        print("❌ [api_handler] Chybí URL nebo explanation v odpovědi NASA.")
         return None
+    return {"hdurl": url, "explanation": explanation}
 
 def generate_ai_background(width=1080, height=1080):
     """Generuje pozadí s podrobným logováním"""
