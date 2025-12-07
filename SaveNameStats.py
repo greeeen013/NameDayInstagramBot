@@ -1,6 +1,7 @@
-# SaveNameStats.py
 import os
 import json
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
 from datetime import datetime, timedelta
 from name_info import get_today_names_and_holidays, get_name_details
 from name_utils import letter_map
