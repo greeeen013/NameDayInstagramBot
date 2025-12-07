@@ -17,6 +17,35 @@ def get_today_names_and_holidays(dnes=datetime.now()):
     table = soup.find("table")
     if not table:
         return None, None
+
+    def is_year_in_range(year_text, target_year):
+        """Pomocná funkce pro kontrolu, zda je rok v rozsahu/seznamu"""
+        parts = year_text.split(",")
+        for part in parts:
+            part = part.strip()
+            if "-" in part:
+                try:
+                    start_str, end_str = part.split("-")
+                    start = int(start_str)
+                    # Pokud je konec rozsahu prázdný, bere se jako "do teď" (nebo prostě platný)
+                    # Ale zde bývají např "2002-2026".
+                    if end_str:
+                        end = int(end_str)
+                    else:
+                        end = datetime.now().year + 10 # Future proof fallback
+                    
+                    if start <= target_year <= end:
+                        return True
+                except ValueError:
+                    continue
+            else:
+                try:
+                    if int(part) == target_year:
+                        return True
+                except ValueError:
+                    continue
+        return False
+
     names_list = []
     events_list = []
     for row in table.find_all("tr"):
@@ -24,9 +53,14 @@ def get_today_names_and_holidays(dnes=datetime.now()):
         if len(cols) != 2:
             continue
         years_text = cols[0].get_text(strip=True)
-        # Hledáme řádek končící "-2025"
-        today_year = str(datetime.now().year)
-        if years_text.endswith(today_year):
+        
+        # Robustnější kontrola roku
+        today_year = datetime.now().year
+        # Pro účely testování z outside nebo pokud dnes není passed jinak
+        if isinstance(dnes, datetime):
+             today_year = dnes.year
+
+        if is_year_in_range(years_text, today_year):
             # Druhý sloupec obsahuje text
             cell = cols[1]
             # Najdi všechny odkazy (klikatelné jména)
@@ -42,7 +76,18 @@ def get_today_names_and_holidays(dnes=datetime.now()):
                     # ignoruj prázdné texty nebo jen čárky
                     if text and text not in [",", ";"]:
                         events_list.append(text)
-    return names_list, events_list
+    
+    # Odstranění duplicit a vyčištění
+    names_list = sorted(list(set(names_list)))
+    # U events_list chceme zachovat pořadí, ale odstranit duplicity
+    events_list_clean = []
+    seen = set()
+    for e in events_list:
+        if e not in seen:
+            events_list_clean.append(e)
+            seen.add(e)
+            
+    return names_list, events_list_clean
 
 
 def get_name_details(name, letter_map, use_failsafe=True):
