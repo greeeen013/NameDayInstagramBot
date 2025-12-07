@@ -136,7 +136,7 @@ def draw_texts(image, name, info=None):
     # ✏️ Výběr fontu podle délky jména
     font_for_name = fonts['name_smaller'] if len(name) >= 12 else fonts['name']
 
-    if info is None:
+    if info is None or not info.get('rank'):
         # 3) Svátek uprostřed – zalomení textu svátku, pokud přesahuje 10 znaků
         if len(name) > 10:
             lines = []
@@ -166,6 +166,9 @@ def draw_texts(image, name, info=None):
             start_y = h // 2 - ((line_count - 1) * line_height) // 2
             for i, line in enumerate(lines):
                 draw_centered(draw, line, font_for_name, center_x, start_y + i * line_height)
+        else:
+            # Krátké jméno/svátek bez statistik - vykreslit jednoduše uprostřed
+            draw_centered(draw, name, font_for_name, center_x, h // 2 - 40)
     else:
         # 3) Jméno
         draw_centered(draw, name, font_for_name, center_x, y_name)
