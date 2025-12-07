@@ -10,6 +10,7 @@ import requests
 import json
 import re
 
+from google import genai
 from together import Together
 
 # Načtení API klíče z .env souboru
@@ -53,9 +54,9 @@ def wait_for_image_window(min_secs: int = 300):
         state[_RATE_KEY] = time.time() + min_secs
         _save_rate_state(state)
 
-def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
+def generate_with_gemini(prompt, model="gemini-flash-latest", max_retries=3):
     """
-    Získává odpověď od Google Gemini API pomocí přímých HTTP požadavků.
+    Získává odpověď od Google Gemini API pomocí google-genai SDK.
 
     Args:
         prompt (str): Textový vstup (prompt) pro AI
@@ -65,42 +66,31 @@ def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
     Returns:
         str: Odpověď od AI nebo None pokud selže
     """
+    try:
+        # Použije GEMINI_API_KEY z .env (automaticky jako GOOGLE_API_KEY pokud je nastaveno správně, 
+        # ale pro jistotu předáme api_key explicitně, pokud se liší název env proměnné)
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                )
+                
+                if response and response.text:
+                    return response.text
+                else:
+                    print(f"Pokus {attempt + 1}: Prázdná odpověď z Gemini API")
 
-    headers = {
-        'Content-Type': 'application/json'
-    }
-
-    payload = {
-        "contents": [{
-            "parts": [{
-                "text": prompt
-            }]
-        }]
-    }
-
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(url, headers=headers, data=json.dumps(payload))
-            response.raise_for_status()
-
-            data = response.json()
-
-            if data and 'candidates' in data and len(data['candidates']) > 0:
-                return data['candidates'][0]['content']['parts'][0]['text']
-            else:
-                print(f"Attempt {attempt + 1}: Empty response from API")
-
-        except requests.exceptions.RequestException as e:
-            print(f"Attempt {attempt + 1} failed with error: {str(e)}")
-            if attempt == max_retries - 1:
-                return None
-
-        except (KeyError, IndexError) as e:
-            print(f"Attempt {attempt + 1}: Failed to parse response - {str(e)}")
-            if attempt == max_retries - 1:
-                return None
+            except Exception as e:
+                print(f"Pokus {attempt + 1} selhal s chybou: {str(e)}")
+                if attempt == max_retries - 1:
+                    return None
+                    
+    except Exception as e:
+         print(f"Kritická chyba při inicializaci Gemini klienta: {e}")
+         return None
 
     return None
 
@@ -145,10 +135,9 @@ def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-
 
         except Exception as e:  # Zachycení všech výjimek, protože Together knihovna může vyhodit různé typy
             print(f"Pokus {attempt + 1} selhal s chybou: {str(e)}")
-            if attempt == max_retries - 1:
-                return None
-
-    return None
+            
+    print("[WARNING] Všechny pokusy DeepSeek selhaly. Přepínám na Google Gemini fallback...")
+    return generate_with_gemini(prompt)
 
 
 def get_nasa_apod(max_retries=3):
@@ -438,12 +427,9 @@ def get_todays_international_days():
         return []
 
 if __name__ == "__main__":
-    print(get_nasa_apod())
-    # Testování funkce
-    events = get_todays_international_days()
-    if events:
-        print("Dnešní mezinárodní dny:")
-        for event in events:
-            print(f"- {event}")
+    print("Testuju gemini")
+    resp = generate_with_gemini("Napiš krátkou básničku o létě v češtině.")
+    print("Gemini response:")
+    print(resp)
     #else:
     #    print("Žádné mezinárodní dny dnes nenalezeny.")
