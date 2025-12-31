@@ -21,7 +21,7 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
 
 
-def generate_with_gemini(prompt, model="gemini-flash-latest", max_retries=3):
+def generate_with_gemini(prompt, model="gemini-2.0-flash", max_retries=3):
     """
     Získává odpověď od Google Gemini API pomocí google-genai SDK.
 
@@ -38,6 +38,8 @@ def generate_with_gemini(prompt, model="gemini-flash-latest", max_retries=3):
         # ale pro jistotu předáme api_key explicitně, pokud se liší název env proměnné)
         client = genai.Client(api_key=GEMINI_API_KEY)
 
+        print(f"promptuju gemini...")
+        
         for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
@@ -46,6 +48,7 @@ def generate_with_gemini(prompt, model="gemini-flash-latest", max_retries=3):
                 )
                 
                 if response and response.text:
+                    print(f"gemini uspesne odpovedelo prvnich 100 znaku:\n{response.text[:100]}...")
                     return response.text
                 else:
                     print(f"Pokus {attempt + 1}: Prázdná odpověď z Gemini API")
@@ -63,48 +66,9 @@ def generate_with_gemini(prompt, model="gemini-flash-latest", max_retries=3):
 
 def generate_with_deepseek(prompt, model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", max_retries=3):
     """
-    Získává odpověď od Together AI API pomocí DeepSeek modelu.
-
-    Args:
-        prompt (str): Textový vstup (prompt) pro AI
-        model (str): Použitý model (výchozí je deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free)
-        max_retries (int): Maximální počet opakování při chybě
-
-    Returns:
-        str: Odpověď od AI nebo None pokud selže
+    DEPRECATED: Původně pro DeepSeek, nyní jen wrapper pro generate_with_gemini.
     """
-
-    # Inicializace Together klienta
-    client = Together(api_key=TOGETHER_API_KEY)  # Předpokládá, že TOGETHER_API_KEY je globální proměnná
-
-    for attempt in range(max_retries):
-        try:
-            # Odeslání požadavku na API
-            response = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            )
-
-            # Zpracování odpovědi
-            if response and response.choices and len(response.choices) > 0:
-                full_response = response.choices[0].message.content
-                # Odstranění <think> části pokud existuje
-                if "<think>" in full_response and "</think>" in full_response:
-                    return full_response.split("</think>")[-1].strip()
-                return full_response
-            else:
-                print(f"Pokus {attempt + 1}: Prázdná odpověď z API")
-
-        except Exception as e:  # Zachycení všech výjimek, protože Together knihovna může vyhodit různé typy
-            print(f"Pokus {attempt + 1} selhal s chybou: {str(e)}")
-            
-    print("[WARNING] Všechny pokusy DeepSeek selhaly. Přepínám na Google Gemini fallback...")
-    return generate_with_gemini(prompt)
+    return generate_with_gemini(prompt, max_retries=max_retries)
 
 
 def get_nasa_apod(max_retries=3):
