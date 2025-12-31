@@ -19,40 +19,7 @@ GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
 NASA_API_KEY = os.getenv("NASA_API_KEY")
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-import threading, time
-RATE_LOCK = threading.Lock()
-_RATE_STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".rate_state.json")
-_RATE_KEY = "image_generation_next_allowed"
 
-def _load_rate_state():
-    try:
-        with open(_RATE_STATE_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def _save_rate_state(state: dict):
-    tmp = _RATE_STATE_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f)
-    os.replace(tmp, _RATE_STATE_PATH)
-
-def wait_for_image_window(min_secs: int = 300):
-    """
-    Zajistí, že od posledního povoleného startu generování uběhne aspoň min_secs.
-    Pokud je brzy, funkce počká do správného času a pak „zarezervuje“ další slot.
-    """
-    with RATE_LOCK:
-        state = _load_rate_state()
-        now = time.time()
-        next_allowed = float(state.get(_RATE_KEY, 0))
-        wait = max(0.0, next_allowed - now)
-        if wait > 0:
-            print(f"⏳ [rate-limit] Čekám {int(wait)} s na další generování obrázku…")
-            time.sleep(wait)
-        # rezervace dalšího povoleného startu: teď + 5 minut
-        state[_RATE_KEY] = time.time() + min_secs
-        _save_rate_state(state)
 
 def generate_with_gemini(prompt, model="gemini-flash-latest", max_retries=3):
     """
@@ -189,18 +156,15 @@ def get_nasa_apod(max_retries=3):
     return {"hdurl": url, "explanation": explanation}
 
 def generate_ai_background(width=1080, height=1080):
-    """Generuje pozadí s podrobným logováním"""
-    if not TOGETHER_API_KEY:
-        print("❌ [AI] Chybí TOGETHER_API_KEY v .env")
+    """Generuje pozadí pomocí Google Gemini (Imagen)"""
+    if not GEMINI_API_KEY:
+        print("❌ [AI] Chybí GEMINI_API_KEY (GOOGLE_API_KEY) v .env")
         return None
 
-    wait_for_image_window(min_secs=300)
+    # wait_for_image_window(min_secs=300) # Removed as per user request
 
-    MODEL_CONFIG = {
-        "model": "black-forest-labs/FLUX.1-schnell-Free",
-        "steps": 4,
-        "size": 1024,
-        "prompts": [
+    # Prompty pro generování (stejné jako předtím)
+    prompts = [
           "calm autumn landscape with falling leaves and soft light",
           "cozy corner with pillows and candles under dim lighting",
           "forest clearing covered in morning mist",
@@ -251,39 +215,40 @@ def generate_ai_background(width=1080, height=1080):
           "peaceful evening on a balcony with a blanket and tea",
           "zen garden with stones and sand",
           "soft pastel colors and blurred light"
-        ]
-    }
+    ]
 
     try:
-        client = Together(api_key=TOGETHER_API_KEY)
+        # Použití Google GenAI klienta (již importován jako genai)
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        
+        # Výběr modelu - Imagen 3 nebo 4 podle dostupnosti pro "Paid Tier 1"
+        # Zkoušíme nejnovější fast model, který by měl být dostupný pro placené účty
+        model_name = "imagen-4.0-fast-generate-001" 
+        
+        prompt = random.choice(prompts)
+        full_prompt = "hyper realistic environment, " + prompt
 
-        prompt = random.choice(MODEL_CONFIG["prompts"])
-        prompt = "hyper realistic environment, "+prompt
+        print(f"📝 [AI] Generuji obrázek s modelem {model_name}...")
+        print(f"📝 [AI] Prompt: '{full_prompt}'")
 
-
-        response = client.images.generate(
-            prompt=prompt,
-            model=MODEL_CONFIG["model"],
-            steps=MODEL_CONFIG["steps"],
-            width=MODEL_CONFIG["size"],
-            height=MODEL_CONFIG["size"],
-            n=1
+        response = client.models.generate_images(
+            model=model_name,
+            prompt=full_prompt,
+            config={
+                'number_of_images': 1,
+            }
         )
 
-        if not response or not response.data:
-            print("❌ [AI] API nevrátilo žádná data")
+        if not response.generated_images:
+            print("❌ [AI] API nevrátilo žádný obrázek")
             return None
 
-        image_url = response.data[0].url
-        print(f"📝 [AI] Použitý prompt: '{prompt}'")
-        print(f"🔗 [AI] Kompletní URL obrázku:\n{image_url}")  # Vypíše celou URL
+        # Získání obrazových dat (bytes)
+        image_bytes = response.generated_images[0].image.image_bytes
+        print(f"⬇️ [AI] Obrázek vygenerován ({len(image_bytes)} bytes).")
 
-        print("⬇️ [AI] Stahuji obrázek...")
-        img_response = requests.get(image_url, timeout=10)
-        img_response.raise_for_status()
-
-        img = Image.open(BytesIO(img_response.content))
-        print(f"🖼️ [AI] Staženo: {img.size} ({img.format}), mód: {img.mode}")
+        img = Image.open(BytesIO(image_bytes))
+        print(f"🖼️ [AI] Načteno: {img.size} ({img.format}), mód: {img.mode}")
 
         if img.size != (width, height):
             print(f"🔄 [AI] Změna velikosti na {width}x{height}")
@@ -292,7 +257,9 @@ def generate_ai_background(width=1080, height=1080):
         return img.convert('RGBA')
 
     except Exception as e:
-        print(f"❌ [AI] Chyba při generování:")
+        print(f"❌ [AI] Chyba při generování obrázku přes Gemini:")
+        if "quota" in str(e).lower() or "billed" in str(e).lower():
+            print("⚠️ [AI] Zdá se, že nemáte povolenou fakturaci (Paid Tier) nebo jste vyčerpali kvótu.")
         import traceback
         traceback.print_exc()
         return None
