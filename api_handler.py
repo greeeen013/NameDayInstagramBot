@@ -294,25 +294,34 @@ def get_todays_international_days():
             date_text = date_cell.get_text().strip()
             #print(f"[DEBUG] Zpracovávám řádek s datem/textem: {date_text}")
 
-            # Zvláštní případ - když je název dne přímo v date_cell
-            if ("den" in date_text or "dny" in date_text) and found_today:
-                clean_text = clean_event_name(date_text)
-                #print(f"[DEBUG] Nalezen den přímo v datovém sloupci: {clean_text}")
-                events.append(clean_text)
-                continue
+            # Zpracování prvního sloupce (datum)
+            date_cell = cells[0]
+            date_text = date_cell.get_text().strip()
+            #print(f"[DEBUG] Zpracovávám řádek s datem/textem: {date_text}")
 
-            # Kontrola formátu data (den. měsíc)
-            if '.' in date_text:
-                if found_today and date_text != today_str:
-                    #print(f"[DEBUG] Nalezeno další datum: {date_text}, ukončuji hledání")
+            # Identifikace, zda jde o řádek s datem (začíná číslem a tečkou)
+            # Ořízneme případné poznámky pod čarou [1][2] pro porovnání
+            clean_date_text = re.split(r'\[', date_text)[0].strip()
+            is_date_row = re.match(r'^\d+\.', clean_date_text)
+
+            if is_date_row:
+                if found_today and clean_date_text != today_str:
+                    #print(f"[DEBUG] Nalezeno další datum: {clean_date_text}, ukončuji hledání")
                     break
 
-                if date_text == today_str:
+                if clean_date_text == today_str:
                     found_today = True
                     collect_events = True
                     #print("[DEBUG] Nalezeno dnešní datum! Začínám sbírat události...")
 
-            # Sbírání událostí pro dnešní datum
+            # Pokud již máme dnešní den, hledáme události
+            # A) Událost je přímo ve sloupci data (např. mezi řádky dat) - ale NENÍ to datum
+            if found_today and not is_date_row and ("den" in date_text or "dny" in date_text):
+                clean_text = clean_event_name(date_text)
+                #print(f"[DEBUG] Nalezen den přímo v datovém sloupci: {clean_text}")
+                events.append(clean_text)
+
+            # B) Událost je ve druhém sloupci
             if collect_events and len(cells) > 1:
                 event_cell = cells[1]
                 event_text = event_cell.get_text().strip()
@@ -358,9 +367,8 @@ def get_todays_international_days():
         return []
 
 if __name__ == "__main__":
-    print("Testuju gemini")
-    resp = generate_with_gemini("Napiš krátkou básničku o létě v češtině.")
-    print("Gemini response:")
-    print(resp)
-    #else:
-    #    print("Žádné mezinárodní dny dnes nenalezeny.")
+    print("Testuju seznam mezinárodních dnů...")
+    events = get_todays_international_days()
+    print("Zpracovaný seznam mezinárodních dnů:")
+    for event in events:
+        print(event)
