@@ -98,37 +98,64 @@ def has_posted_today(cl: Client, max_retries=3) -> bool:
 
 def post_album_to_instagram(image_paths, description):
     """
-    Přihlásí se, předzpracuje obrázky a nahraje fotku nebo album s retry logikou.
+    Přihlásí se, předzpracuje obrázky a nahraje fotku nebo album.
+    Obsahuje retry logiku pro případ ChallengeRequired (neplatná session).
     """
-    cl = login()
+    max_attempts = 2
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print(f"🔄 [insta_bot] Pokus o operaci {attempt}/{max_attempts}...")
+            cl = login()
 
-    if has_posted_today(cl):
-        print("❌ [insta_bot] Dnes už bylo něco nahráno.")
-        return
+            if has_posted_today(cl):
+                print("❌ [insta_bot] Dnes už bylo něco nahráno.")
+                return
 
-    if isinstance(image_paths, (str, Path)):
-        image_paths = [image_paths]
+            if isinstance(image_paths, (str, Path)):
+                image_paths = [image_paths]
 
-    converted = []
-    output_dir = BASE_DIR / "output"
-    output_dir.mkdir(exist_ok=True)
+            converted = []
+            output_dir = BASE_DIR / "output"
+            output_dir.mkdir(exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        for idx, path in enumerate(image_paths):
-            img = Image.open(path).convert("RGB").resize((1080, 1080))
-            out = output_dir / f"img_{idx}.jpg"
-            img.save(out, "JPEG", quality=95)
-            converted.append(out)
+            with tempfile.TemporaryDirectory() as tmp:
+                for idx, path in enumerate(image_paths):
+                    img = Image.open(path).convert("RGB").resize((1080, 1080))
+                    out = output_dir / f"img_{idx}.jpg"
+                    img.save(out, "JPEG", quality=95)
+                    converted.append(out)
 
-        # Small delay before upload
-        time.sleep(random.uniform(5, 10))
+                # Small delay before upload
+                time.sleep(random.uniform(5, 10))
 
-        if len(converted) == 1:
-            _upload_with_retry(cl.photo_upload, converted[0], description)
-            print("✔️ [insta_bot] Fotka úspěšně nahrána!")
-        else:
-            _upload_with_retry(cl.album_upload, converted, description)
-            print("✔️ [insta_bot] Album úspěšně nahráno!")
+                if len(converted) == 1:
+                    _upload_with_retry(cl.photo_upload, converted[0], description)
+                    print("✔️ [insta_bot] Fotka úspěšně nahrána!")
+                else:
+                    _upload_with_retry(cl.album_upload, converted, description)
+                    print("✔️ [insta_bot] Album úspěšně nahráno!")
+            
+            # Pokud vše proběhne bez chyby, ukončíme cyklus
+            return
+
+        except ChallengeRequired:
+            print(f"⚠️ [insta_bot] Detekována ChallengeRequired (pokus {attempt}/{max_attempts}).")
+            print("🛑 Mažu poškozenou session a zkusím to znovu...")
+            
+            if SESSION_FILE.exists():
+                SESSION_FILE.unlink()
+                print(f"🗑️ [insta_bot] Smazáno: {SESSION_FILE}")
+            
+            if attempt == max_attempts:
+                print("❌ [insta_bot] Vyčerpány všechny pokusy o obnovu session. Končím.")
+                raise
+            
+            time.sleep(random.uniform(5, 10))
+        
+        except Exception as e:
+            print(f"❌ [insta_bot] Neočekávaná chyba: {e}")
+            raise
 
 
 if __name__ == "__main__":
