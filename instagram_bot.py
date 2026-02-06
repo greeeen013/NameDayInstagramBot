@@ -70,8 +70,16 @@ def login():
         return cl
 
     except ChallengeRequired as e:
-        print(f"❌ Instagram vyžaduje další ověření: {e}")
-        raise
+        print(f"⚠️ Instagram vyžaduje challenge (např. SMS/Email). Pokouším se o automatické řešení...")
+        try:
+            cl.challenge_resolve(cl.last_json)
+            print("✅ Challenge úspěšně vyřešena!")
+            cl.dump_settings(str(SESSION_FILE))
+            cl.inject_sessionid_to_public()
+            return cl
+        except Exception as resolve_error:
+            print(f"❌ Nepodařilo se vyřešit challenge: {resolve_error}")
+            raise e
     except Exception as e:
         print(f"❌ Chyba při přihlášení: {e}")
         raise
