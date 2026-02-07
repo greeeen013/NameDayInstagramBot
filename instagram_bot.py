@@ -13,6 +13,7 @@ from instagrapi.exceptions import LoginRequired, ChallengeRequired, PleaseWaitFe
 
 BASE_DIR = Path(__file__).resolve().parent
 SESSION_FILE = BASE_DIR / "session.json"
+DEVICE_SETTINGS_FILE = BASE_DIR / "device.json"
 
 
 def _upload_with_retry(func, *args, max_retries=3):
@@ -28,6 +29,23 @@ def _upload_with_retry(func, *args, max_retries=3):
             time.sleep(wait)
     raise Exception("❌ Max retries reached, upload failed.")
 
+def resolve_challenge(cl, max_retries=1):
+    """
+    Pokusí se vyřešit challenge (SMS/Email) pomocí instagrapi.
+    """
+    print(f"⚠️ Instagram vyžaduje challenge (např. SMS/Email). Pokouším se o automatické řešení...")
+    for attempt in range(1, max_retries + 1):
+        try:
+            cl.challenge_resolve(cl.last_json)
+            print("✅ Challenge úspěšně vyřešena!")
+            cl.dump_settings(str(SESSION_FILE))
+            cl.inject_sessionid_to_public()
+            return True
+        except Exception as resolve_error:
+            print(f"❌ Nepodařilo se vyřešit challenge (pokus {attempt}/{max_retries}): {resolve_error}")
+            time.sleep(random.uniform(5, 10))
+    return False
+
 def login():
     load_dotenv()
     username = os.getenv("IG_USERNAME")
@@ -38,21 +56,43 @@ def login():
         raise ValueError("IG_USERNAME nebo IG_PASSWORD není nastaveno v .env!")
 
     cl = Client()
+    
+    # 1. Načtení nebo vytvoření fixního zařízení (aby se neměnilo UUID při každém smazání session)
+    if DEVICE_SETTINGS_FILE.exists():
+        try:
+            device_settings = json.loads(DEVICE_SETTINGS_FILE.read_text())
+            cl.set_device(device_settings)
+            print(f"📱 Načteno uložené zařízení: {DEVICE_SETTINGS_FILE}")
+        except Exception as e:
+             print(f"⚠️ Chyba při načítání device.json: {e}. Generuji nové.")
+             cl.set_device({"app_version": "269.0.0.18.75", "android_version": 26, "android_release": "8.0.0", "dpi": "480dpi", "resolution": "1080x1920", "manufacturer": "OnePlus", "device": "OnePlus6", "model": "ONEPLUS A6003", "cpu": "qcom", "version_code": "314665256"})
+             DEVICE_SETTINGS_FILE.write_text(json.dumps(cl.device_settings, indent=4))
+    else:
+        print("📱 Generuji nové zařízení a ukládám do device.json...")
+        # Instagrapi generuje random device při initu, stačí ho uložit
+        DEVICE_SETTINGS_FILE.write_text(json.dumps(cl.get_settings()["device_settings"], indent=4))
 
     if SESSION_FILE.exists():
         try:
             cl.load_settings(str(SESSION_FILE))
             settings = cl.get_settings()
-            # Re-apply device and user_agent
-            cl.set_device(settings["device_settings"])
-            cl.set_user_agent(settings["user_agent"])
+            # Re-apply device and user_agent (zajistíme, že se nepřeepsalo něčím starým ze session)
+            if DEVICE_SETTINGS_FILE.exists():
+                 device_settings = json.loads(DEVICE_SETTINGS_FILE.read_text())
+                 cl.set_device(device_settings)
+            
             cl.login(username, password)
             cl.inject_sessionid_to_public()
             print(f"✅ Přihlášeno pomocí uložené session: {SESSION_FILE}")
             return cl
         except (LoginRequired, json.JSONDecodeError, Exception) as e:
             print(f"⚠️ Session vypršela: {e}")
-            # Smažte starou session
+            # Smažte starou session - ale pozor, u ChallengeRequired chceme zkusit resolve
+            # Zde to ale padne spíš na LoginRequired. Pokud Challenge, tak níže.
+            if isinstance(e, ChallengeRequired):
+                if resolve_challenge(cl):
+                    return cl
+            
             if SESSION_FILE.exists():
                 SESSION_FILE.unlink()
 
@@ -70,65 +110,124 @@ def login():
         return cl
 
     except ChallengeRequired as e:
-        print(f"❌ Instagram vyžaduje další ověření: {e}")
-        raise
+        if resolve_challenge(cl):
+            return cl
+        raise e
     except Exception as e:
         print(f"❌ Chyba při přihlášení: {e}")
         raise
 
 def has_posted_today(cl: Client, max_retries=3) -> bool:
-    """Check if user has posted today, with retry on rate limit."""
+    """Check if user has posted today, with retry on rate limit and challenge handling."""
     if not cl.user_id:
         raise ValueError("Nepodařilo se získat user_id po přihlášení")
+    
+    posts = []
     for attempt in range(1, max_retries + 1):
         try:
             posts = cl.user_medias_v1(cl.user_id, amount=1)
             break
+        except ChallengeRequired:
+            print(f"⚠️ [has_posted_today] Detekována ChallengeRequired (pokus {attempt}/{max_retries}).")
+            if resolve_challenge(cl):
+                print("🔄 Challenge vyřešena, opakuji dotaz na média...")
+                try:
+                    posts = cl.user_medias_v1(cl.user_id, amount=1)
+                    break
+                except Exception as e:
+                    print(f"❌ [has_posted_today] Opakovaný dotaz selhal: {e}")
+            
+            # Pokud resolve selhal nebo opakovaný dotaz selhal, zkusíme další iteraci (pokud máme retries)
+            time.sleep(random.uniform(10, 20))
+
         except PleaseWaitFewMinutes as e:
             wait = random.uniform(20, 40) * attempt
             print(f"⚠️ Rate limited on has_posted_today (attempt {attempt}/{max_retries}): {e}. Sleeping {int(wait)}s...")
             time.sleep(wait)
+        except Exception as e:
+            print(f"⚠️ Chyba při has_posted_today (pokus {attempt}/{max_retries}): {e}")
+            # u obecné chyby (např. 400) taky počkáme
+            time.sleep(random.uniform(5, 10))
     else:
-        print("⚠️ Nelze ověřit poslední post; předpokládám, že dnes nic nebylo.")
+        print("⚠️ Nelze ověřit poslední post (vyčerpány pokusy); předpokládám, že dnes nic nebylo.")
+        return False
+
+    if not posts:
         return False
 
     today = datetime.now(timezone.utc).date()
-    return any(p.taken_at.date() == today for p in posts)
+    # posts[0] is the latest
+    return posts[0].taken_at.date() == today
 
 
 def post_album_to_instagram(image_paths, description):
     """
-    Přihlásí se, předzpracuje obrázky a nahraje fotku nebo album s retry logikou.
+    Přihlásí se, předzpracuje obrázky a nahraje fotku nebo album.
+    Obsahuje retry logiku pro případ ChallengeRequired (neplatná session).
     """
-    cl = login()
+    max_attempts = 3
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print(f"🔄 [insta_bot] Pokus o operaci {attempt}/{max_attempts}...")
+            cl = login()
 
-    if has_posted_today(cl):
-        print("❌ [insta_bot] Dnes už bylo něco nahráno.")
-        return
+            if has_posted_today(cl):
+                print("❌ [insta_bot] Dnes už bylo něco nahráno.")
+                return
 
-    if isinstance(image_paths, (str, Path)):
-        image_paths = [image_paths]
+            if isinstance(image_paths, (str, Path)):
+                image_paths = [image_paths]
 
-    converted = []
-    output_dir = BASE_DIR / "output"
-    output_dir.mkdir(exist_ok=True)
+            converted = []
+            output_dir = BASE_DIR / "output"
+            output_dir.mkdir(exist_ok=True)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        for idx, path in enumerate(image_paths):
-            img = Image.open(path).convert("RGB").resize((1080, 1080))
-            out = output_dir / f"img_{idx}.jpg"
-            img.save(out, "JPEG", quality=95)
-            converted.append(out)
+            with tempfile.TemporaryDirectory() as tmp:
+                for idx, path in enumerate(image_paths):
+                    img = Image.open(path).convert("RGB").resize((1080, 1080))
+                    out = output_dir / f"img_{idx}.jpg"
+                    img.save(out, "JPEG", quality=95)
+                    converted.append(out)
 
-        # Small delay before upload
-        time.sleep(random.uniform(5, 10))
+                # Small delay before upload
+                time.sleep(random.uniform(5, 10))
 
-        if len(converted) == 1:
-            _upload_with_retry(cl.photo_upload, converted[0], description)
-            print("✔️ [insta_bot] Fotka úspěšně nahrána!")
-        else:
-            _upload_with_retry(cl.album_upload, converted, description)
-            print("✔️ [insta_bot] Album úspěšně nahráno!")
+                if len(converted) == 1:
+                    _upload_with_retry(cl.photo_upload, converted[0], description)
+                    print("✔️ [insta_bot] Fotka úspěšně nahrána!")
+                else:
+                    _upload_with_retry(cl.album_upload, converted, description)
+                    print("✔️ [insta_bot] Album úspěšně nahráno!")
+            
+            # Pokud vše proběhne bez chyby, ukončíme cyklus
+            return
+
+        except ChallengeRequired:
+            print(f"⚠️ [insta_bot] Detekována ChallengeRequired (pokus {attempt}/{max_attempts}).")
+            print("🛑 Mažu poškozenou session, device a zkusím to znovu...")
+            
+            if SESSION_FILE.exists():
+                SESSION_FILE.unlink()
+                print(f"🗑️ [insta_bot] Smazáno: {SESSION_FILE}")
+
+            # Smažeme i device.json, aby se vygenerovalo nové zařízení (pomáhá při smyčce challenge)
+            if DEVICE_SETTINGS_FILE.exists():
+                DEVICE_SETTINGS_FILE.unlink()
+                print(f"🗑️ [insta_bot] Smazáno: {DEVICE_SETTINGS_FILE}")
+            
+            if attempt == max_attempts:
+                print("❌ [insta_bot] Vyčerpány všechny pokusy o obnovu session. Končím.")
+                raise
+            
+            # Delší pauza před dalším pokusem
+            wait_time = random.uniform(20, 60)
+            print(f"⏳ Čekám {int(wait_time)}s před dalším pokusem...")
+            time.sleep(wait_time)
+        
+        except Exception as e:
+            print(f"❌ [insta_bot] Neočekávaná chyba: {e}")
+            raise
 
 
 if __name__ == "__main__":
