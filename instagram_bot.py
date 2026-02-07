@@ -13,6 +13,7 @@ from instagrapi.exceptions import LoginRequired, ChallengeRequired, PleaseWaitFe
 
 BASE_DIR = Path(__file__).resolve().parent
 SESSION_FILE = BASE_DIR / "session.json"
+DEVICE_SETTINGS_FILE = BASE_DIR / "device.json"
 
 
 def _upload_with_retry(func, *args, max_retries=3):
@@ -38,14 +39,31 @@ def login():
         raise ValueError("IG_USERNAME nebo IG_PASSWORD není nastaveno v .env!")
 
     cl = Client()
+    
+    # 1. Načtení nebo vytvoření fixního zařízení (aby se neměnilo UUID při každém smazání session)
+    if DEVICE_SETTINGS_FILE.exists():
+        try:
+            device_settings = json.loads(DEVICE_SETTINGS_FILE.read_text())
+            cl.set_device(device_settings)
+            print(f"📱 Načteno uložené zařízení: {DEVICE_SETTINGS_FILE}")
+        except Exception as e:
+             print(f"⚠️ Chyba při načítání device.json: {e}. Generuji nové.")
+             cl.set_device({"app_version": "269.0.0.18.75", "android_version": 26, "android_release": "8.0.0", "dpi": "480dpi", "resolution": "1080x1920", "manufacturer": "OnePlus", "device": "OnePlus6", "model": "ONEPLUS A6003", "cpu": "qcom", "version_code": "314665256"})
+             DEVICE_SETTINGS_FILE.write_text(json.dumps(cl.device_settings, indent=4))
+    else:
+        print("📱 Generuji nové zařízení a ukládám do device.json...")
+        # Instagrapi generuje random device při initu, stačí ho uložit
+        DEVICE_SETTINGS_FILE.write_text(json.dumps(cl.get_settings()["device_settings"], indent=4))
 
     if SESSION_FILE.exists():
         try:
             cl.load_settings(str(SESSION_FILE))
             settings = cl.get_settings()
-            # Re-apply device and user_agent
-            cl.set_device(settings["device_settings"])
-            cl.set_user_agent(settings["user_agent"])
+            # Re-apply device and user_agent (zajistíme, že se nepřeepsalo něčím starým ze session)
+            if DEVICE_SETTINGS_FILE.exists():
+                 device_settings = json.loads(DEVICE_SETTINGS_FILE.read_text())
+                 cl.set_device(device_settings)
+            
             cl.login(username, password)
             cl.inject_sessionid_to_public()
             print(f"✅ Přihlášeno pomocí uložené session: {SESSION_FILE}")
