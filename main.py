@@ -1,7 +1,8 @@
 import time
 
 from api_handler import generate_with_deepseek, get_todays_international_days
-from instagram_bot import post_album_to_instagram
+# from instagram_bot import post_album_to_instagram
+from playwright_instagram_bot import post_to_instagram as post_album_to_instagram
 from name_info import get_name_details, get_today_names_and_holidays
 from image_generator import generate_image_for, generate_nasa_image, generate_international_day_image
 from name_utils import letter_map
