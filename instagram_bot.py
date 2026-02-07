@@ -127,7 +127,7 @@ def post_album_to_instagram(image_paths, description):
     Přihlásí se, předzpracuje obrázky a nahraje fotku nebo album.
     Obsahuje retry logiku pro případ ChallengeRequired (neplatná session).
     """
-    max_attempts = 2
+    max_attempts = 3
     
     for attempt in range(1, max_attempts + 1):
         try:
@@ -167,17 +167,25 @@ def post_album_to_instagram(image_paths, description):
 
         except ChallengeRequired:
             print(f"⚠️ [insta_bot] Detekována ChallengeRequired (pokus {attempt}/{max_attempts}).")
-            print("🛑 Mažu poškozenou session a zkusím to znovu...")
+            print("🛑 Mažu poškozenou session, device a zkusím to znovu...")
             
             if SESSION_FILE.exists():
                 SESSION_FILE.unlink()
                 print(f"🗑️ [insta_bot] Smazáno: {SESSION_FILE}")
+
+            # Smažeme i device.json, aby se vygenerovalo nové zařízení (pomáhá při smyčce challenge)
+            if DEVICE_SETTINGS_FILE.exists():
+                DEVICE_SETTINGS_FILE.unlink()
+                print(f"🗑️ [insta_bot] Smazáno: {DEVICE_SETTINGS_FILE}")
             
             if attempt == max_attempts:
                 print("❌ [insta_bot] Vyčerpány všechny pokusy o obnovu session. Končím.")
                 raise
             
-            time.sleep(random.uniform(5, 10))
+            # Delší pauza před dalším pokusem
+            wait_time = random.uniform(20, 60)
+            print(f"⏳ Čekám {int(wait_time)}s před dalším pokusem...")
+            time.sleep(wait_time)
         
         except Exception as e:
             print(f"❌ [insta_bot] Neočekávaná chyba: {e}")
