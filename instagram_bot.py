@@ -29,6 +29,23 @@ def _upload_with_retry(func, *args, max_retries=3):
             time.sleep(wait)
     raise Exception("❌ Max retries reached, upload failed.")
 
+def resolve_challenge(cl, max_retries=1):
+    """
+    Pokusí se vyřešit challenge (SMS/Email) pomocí instagrapi.
+    """
+    print(f"⚠️ Instagram vyžaduje challenge (např. SMS/Email). Pokouším se o automatické řešení...")
+    for attempt in range(1, max_retries + 1):
+        try:
+            cl.challenge_resolve(cl.last_json)
+            print("✅ Challenge úspěšně vyřešena!")
+            cl.dump_settings(str(SESSION_FILE))
+            cl.inject_sessionid_to_public()
+            return True
+        except Exception as resolve_error:
+            print(f"❌ Nepodařilo se vyřešit challenge (pokus {attempt}/{max_retries}): {resolve_error}")
+            time.sleep(random.uniform(5, 10))
+    return False
+
 def login():
     load_dotenv()
     username = os.getenv("IG_USERNAME")
@@ -70,7 +87,12 @@ def login():
             return cl
         except (LoginRequired, json.JSONDecodeError, Exception) as e:
             print(f"⚠️ Session vypršela: {e}")
-            # Smažte starou session
+            # Smažte starou session - ale pozor, u ChallengeRequired chceme zkusit resolve
+            # Zde to ale padne spíš na LoginRequired. Pokud Challenge, tak níže.
+            if isinstance(e, ChallengeRequired):
+                if resolve_challenge(cl):
+                    return cl
+            
             if SESSION_FILE.exists():
                 SESSION_FILE.unlink()
 
@@ -88,38 +110,54 @@ def login():
         return cl
 
     except ChallengeRequired as e:
-        print(f"⚠️ Instagram vyžaduje challenge (např. SMS/Email). Pokouším se o automatické řešení...")
-        try:
-            cl.challenge_resolve(cl.last_json)
-            print("✅ Challenge úspěšně vyřešena!")
-            cl.dump_settings(str(SESSION_FILE))
-            cl.inject_sessionid_to_public()
+        if resolve_challenge(cl):
             return cl
-        except Exception as resolve_error:
-            print(f"❌ Nepodařilo se vyřešit challenge: {resolve_error}")
-            raise e
+        raise e
     except Exception as e:
         print(f"❌ Chyba při přihlášení: {e}")
         raise
 
 def has_posted_today(cl: Client, max_retries=3) -> bool:
-    """Check if user has posted today, with retry on rate limit."""
+    """Check if user has posted today, with retry on rate limit and challenge handling."""
     if not cl.user_id:
         raise ValueError("Nepodařilo se získat user_id po přihlášení")
+    
+    posts = []
     for attempt in range(1, max_retries + 1):
         try:
             posts = cl.user_medias_v1(cl.user_id, amount=1)
             break
+        except ChallengeRequired:
+            print(f"⚠️ [has_posted_today] Detekována ChallengeRequired (pokus {attempt}/{max_retries}).")
+            if resolve_challenge(cl):
+                print("🔄 Challenge vyřešena, opakuji dotaz na média...")
+                try:
+                    posts = cl.user_medias_v1(cl.user_id, amount=1)
+                    break
+                except Exception as e:
+                    print(f"❌ [has_posted_today] Opakovaný dotaz selhal: {e}")
+            
+            # Pokud resolve selhal nebo opakovaný dotaz selhal, zkusíme další iteraci (pokud máme retries)
+            time.sleep(random.uniform(10, 20))
+
         except PleaseWaitFewMinutes as e:
             wait = random.uniform(20, 40) * attempt
             print(f"⚠️ Rate limited on has_posted_today (attempt {attempt}/{max_retries}): {e}. Sleeping {int(wait)}s...")
             time.sleep(wait)
+        except Exception as e:
+            print(f"⚠️ Chyba při has_posted_today (pokus {attempt}/{max_retries}): {e}")
+            # u obecné chyby (např. 400) taky počkáme
+            time.sleep(random.uniform(5, 10))
     else:
-        print("⚠️ Nelze ověřit poslední post; předpokládám, že dnes nic nebylo.")
+        print("⚠️ Nelze ověřit poslední post (vyčerpány pokusy); předpokládám, že dnes nic nebylo.")
+        return False
+
+    if not posts:
         return False
 
     today = datetime.now(timezone.utc).date()
-    return any(p.taken_at.date() == today for p in posts)
+    # posts[0] is the latest
+    return posts[0].taken_at.date() == today
 
 
 def post_album_to_instagram(image_paths, description):
