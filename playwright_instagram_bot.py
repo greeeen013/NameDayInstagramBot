@@ -17,7 +17,7 @@ def post_to_instagram(images: list, caption: str) -> None:
         return
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=False)
+        browser = playwright.chromium.launch(headless=True)
         context = browser.new_context()
         page = context.new_page()
         
