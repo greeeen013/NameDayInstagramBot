@@ -3,4 +3,5 @@ __pycache__/
 .env
 .idea/
 *.log
+instagram_bot_playwright.py
 playwright.py
