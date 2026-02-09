@@ -25,28 +25,37 @@ def post_to_instagram(images: list, caption: str) -> None:
             print("Navigating to login page...")
             page.goto("https://www.instagram.com/accounts/login")
             
-            # Handle cookies if present
-            try:
-                page.get_by_role("button", name="Allow all cookies").click(timeout=3000)
-            except:
-                pass
-
             # Login flow
             print("Logging in...")
             try:
-                # Wait for username field (more robust than text-based selectors)
-                page.wait_for_selector('input[name="username"]', timeout=10000)
-                page.fill('input[name="username"]', username)
-                
-                # Check for password field
-                page.wait_for_selector('input[name="password"]', timeout=10000)
-                page.fill('input[name="password"]', password)
-                
-                # Click login
+                try:
+                    page.get_by_role("button", name="Allow all cookies").click(timeout=5000)
+                except:
+                    pass
+
+                # Using user's codegen selectors exactly
+                try:
+                    page.get_by_role("textbox", name="Mobile number, username or").click(timeout=5000)
+                    page.get_by_role("textbox", name="Mobile number, username or").fill(username)
+                except:
+                    # Fallback just in case, but prioritize codegen
+                    try:
+                         page.get_by_role("textbox", name="Phone number, username or").click(timeout=5000)
+                         page.get_by_role("textbox", name="Phone number, username or").fill(username)
+                    except:
+                        # Fallback to generic input
+                        page.locator('input[name="username"]').click(timeout=5000)
+                        page.locator('input[name="username"]').fill(username)
+
+                page.get_by_role("textbox", name="Password").click()
+                page.get_by_role("textbox", name="Password").fill(password)
                 page.get_by_role("button", name="Log in", exact=True).click()
+                
+                # Wait for navigation or 2FA
+                page.wait_for_timeout(3000)
+
             except Exception as e:
                 print(f"Login failed: {e}")
-                # Take screenshot for debugging if possible
                 try:
                     page.screenshot(path="login_error.png")
                     print("Saved screenshot of login failure to login_error.png")
@@ -59,15 +68,15 @@ def post_to_instagram(images: list, caption: str) -> None:
             try:
                 # Wait for the security code field to appear
                 # It might redirect to /two_factor or just show the field
-                page.wait_for_selector('input[name="verificationCode"]', timeout=10000)
-                
-                totp = pyotp.TOTP(totp_secret.replace(" ", ""))
-                code = totp.now()
-                print(f"Entering 2FA code: {code}")
-                
-                page.get_by_role("textbox", name="Security code").click()
-                page.get_by_role("textbox", name="Security code").fill(code)
-                page.get_by_role("button", name="Confirm").click()
+                # Codegen used checking for "Security code" textbox
+                if page.get_by_role("textbox", name="Security code").is_visible(timeout=5000):
+                     totp = pyotp.TOTP(totp_secret.replace(" ", ""))
+                     code = totp.now()
+                     print(f"Entering 2FA code: {code}")
+                     
+                     page.get_by_role("textbox", name="Security code").click()
+                     page.get_by_role("textbox", name="Security code").fill(code)
+                     page.get_by_role("button", name="Confirm").click()
                 
                 # Handle "Save info" if present
                 try:
