@@ -255,7 +255,19 @@ def main():
 
     # Odeslání na Instagram
     print("🚀 Publikuji příspěvek na Instagram...")
-    post_album_to_instagram(image_paths, description)
+    
+    # Generování 2FA kódu
+    import pyotp
+    totp_secret = os.getenv("IG_2FA_SECRET")
+    if totp_secret:
+        totp = pyotp.TOTP(totp_secret.replace(" ", ""))
+        two_factor_code = totp.now()
+        print(f"🔐 Generuji 2FA kód: {two_factor_code}")
+    else:
+        two_factor_code = None
+        print("⚠️ Chybí IG_2FA_SECRET, 2FA kód nebude zadán.")
+
+    post_album_to_instagram(image_paths, description, two_factor_code)
 
 
 if __name__ == "__main__":
