@@ -32,19 +32,27 @@ def post_to_instagram(images: list, caption: str) -> None:
                 pass
 
             # Login flow
-            # Login flow
             print("Logging in...")
-            # Try different selectors for username field as it varies
             try:
-                page.get_by_role("textbox", name="Mobile number, username or").click(timeout=2000)
-                page.get_by_role("textbox", name="Mobile number, username or").fill(username)
-            except:
-                page.get_by_role("textbox", name="Phone number, username or").click(timeout=2000)
-                page.get_by_role("textbox", name="Phone number, username or").fill(username)
-
-            page.get_by_role("textbox", name="Password").click()
-            page.get_by_role("textbox", name="Password").fill(password)
-            page.get_by_role("button", name="Log in", exact=True).click()
+                # Wait for username field (more robust than text-based selectors)
+                page.wait_for_selector('input[name="username"]', timeout=10000)
+                page.fill('input[name="username"]', username)
+                
+                # Check for password field
+                page.wait_for_selector('input[name="password"]', timeout=10000)
+                page.fill('input[name="password"]', password)
+                
+                # Click login
+                page.get_by_role("button", name="Log in", exact=True).click()
+            except Exception as e:
+                print(f"Login failed: {e}")
+                # Take screenshot for debugging if possible
+                try:
+                    page.screenshot(path="login_error.png")
+                    print("Saved screenshot of login failure to login_error.png")
+                except:
+                    pass
+                raise e
 
             # 2FA handling
             print("Waiting for 2FA prompt...")
