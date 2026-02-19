@@ -1,5 +1,4 @@
 import time
-
 from api_handler import generate_with_deepseek, get_todays_international_days
 # from instagram_bot import post_album_to_instagram
 # from playwright_instagram_bot import post_to_instagram as post_album_to_instagram
@@ -147,7 +146,30 @@ def delete_old_png_files():
     print(f"🏁 [main_delete_old_png_files] Úklid dokončen!")
 
 
-def main():
+def save_caption(caption: str):
+    """Saves the generated caption to a file."""
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
+    os.makedirs(output_dir, exist_ok=True)
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    filepath = os.path.join(output_dir, f'caption_{today_str}.txt')
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(caption)
+    print(f"📝 [main] Caption saved to {filepath}")
+
+
+def load_caption() -> str:
+    """Loads the caption from a file if it exists."""
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    filepath = os.path.join(output_dir, f'caption_{today_str}.txt')
+    if os.path.exists(filepath):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            print(f"📖 [main] Loading cached caption from {filepath}")
+            return f.read()
+    return None
+
+
+def run_bot():
     """
     1) Načte dnešní sváteční jména.
     2) Pokud nejsou jmeniny, zkontroluje svátky.
@@ -231,29 +253,35 @@ def main():
     else:
         print("Dnes není žádný mezinárodní den. Používám standardní obrázek.")
 
-    # Generování textu
-    ai_response = generate_all_prompts(names, holidays, names_info)
-    if not ai_response:
-        ai_response = f"🎉 Dnes slavíme {' a '.join(names) if names else holidays[0]}! 🎉\n\nPřipojte se k oslavám tohoto výjimečného dne!"
-        print("⚠️ AI odpověď nebyla dostupná. Používám výchozí text.")
+    # Generování textu - s kontrolou cache
+    description = load_caption()
+    
+    if not description:
+        ai_response = generate_all_prompts(names, holidays, names_info)
+        if not ai_response:
+            ai_response = f"🎉 Dnes slavíme {' a '.join(names) if names else holidays[0]}! 🎉\n\nPřipojte se k oslavám tohoto výjimečného dne!"
+            print("⚠️ AI odpověď nebyla dostupná. Používám výchozí text.")
 
-    # Přidání NASA obrázku
-    nasa_path, nasa_explanation = generate_nasa_image()
-    if nasa_path:
-        image_paths.append(nasa_path)
-        print("✔️ NASA obrázek přidán.")
-        if nasa_explanation:
-            translated = generate_with_deepseek(
-                "Přelož následující text z angličtiny do češtiny a uprav jej jako stručný instagramový popisek, klidně použij emoji ale nepoužívej žádný # ani _ ani *.\n"
-                f"Text ke zpracování:\n{nasa_explanation}"
-            )
-            if translated:
-                ai_response += f"\n\n📷 Fotka vesmíru:\n{translated}"
+        # Přidání NASA obrázku
+        nasa_path, nasa_explanation = generate_nasa_image()
+        if nasa_path:
+            image_paths.append(nasa_path)
+            print("✔️ NASA obrázek přidán.")
+            if nasa_explanation:
+                translated = generate_with_deepseek(
+                    "Přelož následující text z angličtiny do češtiny a uprav jej jako stručný instagramový popisek, klidně použij emoji ale nepoužívej žádný # ani _ ani *.\n"
+                    f"Text ke zpracování:\n{nasa_explanation}"
+                )
+                if translated:
+                    ai_response += f"\n\n📷 Fotka vesmíru:\n{translated}"
 
-    # Finální popis
-    sources = "\n\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)"
-    hashtags = "\n\n#DnesMaSvatek #SvatekDnes #SvatekKazdyDen #CeskeJmeniny #Svatky #PoznejSvatky #DnesSlavi"
-    description = ai_response + sources + hashtags
+        # Finální popis
+        sources = "\n\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)"
+        hashtags = "\n\n#DnesMaSvatek #SvatekDnes #SvatekKazdyDen #CeskeJmeniny #Svatky #PoznejSvatky #DnesSlavi"
+        description = ai_response + sources + hashtags
+        
+        # Uložení do cache
+        save_caption(description)
 
     # Odeslání na Instagram
     print("🚀 Publikuji příspěvek na Instagram...")
@@ -271,6 +299,25 @@ def main():
 
     post_album_to_instagram(image_paths, description, two_factor_code)
 
+
+def main():
+    max_retries = 10
+    retry_delay = 3600  # 1 hour in seconds
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"▶️ Spouštím pokus {attempt}/{max_retries}")
+            run_bot()
+            print("✅ Hlavní proces dokončen úspěšně.")
+            break
+        except Exception as e:
+            print(f"❌ Chyba při běhu (pokus {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                print(f"⏳ Čekám {retry_delay} sekund (1 hodina) před dalším pokusem...")
+                time.sleep(retry_delay)
+            else:
+                print("⛔ Dosažen maximální počet pokusů. Končím.")
+                raise e
 
 if __name__ == "__main__":
     main()
