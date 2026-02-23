@@ -169,12 +169,10 @@ def load_caption() -> str:
     return None
 
 
-def run_bot():
+def prepare_content():
     """
-    1) Načte dnešní sváteční jména.
-    2) Pokud nejsou jmeniny, zkontroluje svátky.
-    3) Pro každý případ vygeneruje příslušný obsah a obrázky.
-    4) Nahraje obsah na Instagram.
+    Fáze 1 (drahá): Načte jména, vygeneruje obrázky a caption.
+    Vrátí (image_paths, description) nebo vyhodí výjimku.
     """
     print("🍀 Načítám dnešní sváteční jména...")
     names, holidays = get_today_names_and_holidays()
@@ -242,20 +240,19 @@ def run_bot():
 
     else:
         print("❌ Dnes není žádný svátek ani jmeniny.")
-        return
+        return None, None
 
     international_days = get_todays_international_days()
 
     if international_days:
         for day_name in international_days:
             image_paths.append(generate_international_day_image(day_name))
-            # ... pokračuj v postování obrázku
     else:
         print("Dnes není žádný mezinárodní den. Používám standardní obrázek.")
 
     # Generování textu - s kontrolou cache
     description = load_caption()
-    
+
     if not description:
         ai_response = generate_all_prompts(names, holidays, names_info)
         if not ai_response:
@@ -279,45 +276,58 @@ def run_bot():
         sources = "\n\nKdo má svátek je z: kalendar.beda.cz \nStatistiky jsou z: nasejmena.cz \nZdroj obrázku: NASA Astronomy Picture of the Day (APOD)"
         hashtags = "\n\n#DnesMaSvatek #SvatekDnes #SvatekKazdyDen #CeskeJmeniny #Svatky #PoznejSvatky #DnesSlavi"
         description = ai_response + sources + hashtags
-        
+
         # Uložení do cache
         save_caption(description)
 
-    # Odeslání na Instagram
-    print("🚀 Publikuji příspěvek na Instagram...")
-    
-    # Generování 2FA kódu
+    return image_paths, description
+
+
+def post_with_retry(image_paths: list, description: str, max_retries: int = 10, retry_delay: int = 3600):
+    """
+    Fáze 2 (levná, opakovatelná): Zkouší přihlásit se na Instagram a odeslat příspěvek.
+    Opakuje pouze tuto fázi – bez opakování drahého generování obsahu.
+    """
     import pyotp
     totp_secret = os.getenv("IG_2FA_SECRET")
-    if totp_secret:
-        totp = pyotp.TOTP(totp_secret.replace(" ", ""))
-        two_factor_code = totp.now()
-        print(f"🔐 Generuji 2FA kód: {two_factor_code}")
-    else:
-        two_factor_code = None
-        print("⚠️ Chybí IG_2FA_SECRET, 2FA kód nebude zadán.")
 
-    post_album_to_instagram(image_paths, description, two_factor_code)
-
-
-def main():
-    max_retries = 10
-    retry_delay = 3600  # 1 hour in seconds
-    
     for attempt in range(1, max_retries + 1):
+        print(f"▶️ Pokus o přihlášení a publikaci {attempt}/{max_retries}")
         try:
-            print(f"▶️ Spouštím pokus {attempt}/{max_retries}")
-            run_bot()
-            print("✅ Hlavní proces dokončen úspěšně.")
-            break
+            # 2FA kód generujeme těsně před pokusem (kód vyprší za 30 s)
+            if totp_secret:
+                totp = pyotp.TOTP(totp_secret.replace(" ", ""))
+                two_factor_code = totp.now()
+                print(f"🔐 Generuji 2FA kód: {two_factor_code}")
+            else:
+                two_factor_code = None
+                print("⚠️ Chybí IG_2FA_SECRET, 2FA kód nebude zadán.")
+
+            post_album_to_instagram(image_paths, description, two_factor_code)
+            print("✅ Příspěvek úspěšně publikován!")
+            return  # Úspěch – ukončíme smyčku
         except Exception as e:
-            print(f"❌ Chyba při běhu (pokus {attempt}/{max_retries}): {e}")
+            print(f"❌ Chyba při publikaci (pokus {attempt}/{max_retries}): {e}")
             if attempt < max_retries:
                 print(f"⏳ Čekám {retry_delay} sekund (1 hodina) před dalším pokusem...")
                 time.sleep(retry_delay)
             else:
-                print("⛔ Dosažen maximální počet pokusů. Končím.")
-                raise e
+                print("⛔ Dosažen maximální počet pokusů publikace. Končím.")
+                raise
+
+
+def main():
+    # --- Fáze 1: Generování obsahu (jednou, drahé API volání) ---
+    print("▶️ Spouštím generování obsahu...")
+    image_paths, description = prepare_content()
+
+    if image_paths is None:
+        print("⛔ Žádný obsah k publikaci. Ukončuji.")
+        return
+
+    # --- Fáze 2: Publikace na Instagram (opakujeme jen tuto část) ---
+    print("🚀 Publikuji příspěvek na Instagram...")
+    post_with_retry(image_paths, description, max_retries=10, retry_delay=3600)
 
 if __name__ == "__main__":
     main()
