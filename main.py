@@ -8,6 +8,7 @@ from name_info import get_name_details, get_today_names_and_holidays
 from image_generator import generate_image_for, generate_nasa_image, generate_international_day_image
 from name_utils import letter_map
 from SaveNameStats import get_name_stats_failsafe
+from caption_cache import get_cached_caption, save_caption_to_cache
 import os
 from datetime import datetime, timedelta
 
@@ -46,9 +47,9 @@ def generate_prompt(is_holiday: bool, name_or_holiday: str, info: dict = None) -
 
 def generate_all_prompts(names: list, holidays: list, names_info: list = None) -> str:
     """
-    Zpracuje všechny případy (jména/svátky) a vrátí finální text pro Instagram
-    1. Pokud je svátek - vrátí jeden text o svátku
-    2. Pokud jsou jména - vrátí texty o jednotlivých jménech oddělené ---
+    Zpracuje všechny případy (jména/svátky) a vrátí finální text pro Instagram.
+    Pro každé jméno / svátek nejdříve zkontroluje trvalou cache (caption_cache.json).
+    AI je voláno pouze při cache MISS – výsledek se okamžitě uloží pro příští roky.
     """
     final_text = ""
 
@@ -57,24 +58,33 @@ def generate_all_prompts(names: list, holidays: list, names_info: list = None) -
         if len(names) == 1:
             intro = f"🎉 Dnes svátek slaví {names[0]}! 🎉"
         else:
-            # Spojení jmen s čárkami a "a" před posledním jménem
             names_str = ", ".join(names[:-1]) + " a " + names[-1]
             intro = f"🎉 Dnes svátek slaví {names_str}! 🎉"
         final_text += f"{intro}\n\n"
 
     if holidays:
-        # Zpracování svátků
         for holiday in holidays:
-            prompt = generate_prompt(is_holiday=True, name_or_holiday=holiday)
-            response = generate_with_deepseek(prompt)
+            # 1) Zkus cache
+            response = get_cached_caption(holiday)
+            if response is None:
+                # 2) Cache MISS → zavolej AI
+                prompt = generate_prompt(is_holiday=True, name_or_holiday=holiday)
+                response = generate_with_deepseek(prompt)
+                if response:
+                    save_caption_to_cache(holiday, response)
             if response:
                 final_text += f"{response}\n\n"
 
     if names:
-        # Zpracování jmen
-        for i, (name, info) in enumerate(zip(names, names_info or [])):
-            prompt = generate_prompt(is_holiday=False, name_or_holiday=name, info=info)
-            response = generate_with_deepseek(prompt)
+        for name, info in zip(names, names_info or []):
+            # 1) Zkus cache
+            response = get_cached_caption(name)
+            if response is None:
+                # 2) Cache MISS → zavolej AI
+                prompt = generate_prompt(is_holiday=False, name_or_holiday=name, info=info)
+                response = generate_with_deepseek(prompt)
+                if response:
+                    save_caption_to_cache(name, response)
             if response:
                 final_text += f"{response}\n\n"
 
