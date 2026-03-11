@@ -1,9 +1,7 @@
 import time
 from api_handler import generate_with_deepseek, get_todays_international_days
-# from instagram_bot import post_album_to_instagram
-# from playwright_instagram_bot import post_to_instagram as post_album_to_instagram
-# from playwright import post_to_instagram as post_album_to_instagram
-from instagram_bot_playwright import post_to_instagram as post_album_to_instagram
+from instagram_bot import post_album_to_instagram as post_instagrapi
+from playwright_instagram_bot import post_to_instagram as post_playwright
 from name_info import get_name_details, get_today_names_and_holidays
 from image_generator import generate_image_for, generate_nasa_image, generate_international_day_image
 from name_utils import letter_map
@@ -313,9 +311,21 @@ def post_with_retry(image_paths: list, description: str, max_retries: int = 10, 
                 two_factor_code = None
                 print("⚠️ Chybí IG_2FA_SECRET, 2FA kód nebude zadán.")
 
-            post_album_to_instagram(image_paths, description, two_factor_code)
-            print("✅ Příspěvek úspěšně publikován!")
-            return  # Úspěch – ukončíme smyčku
+            try:
+                print("▶️ Zkouším nahrát přes instagrapi...")
+                post_instagrapi(image_paths, description)
+                print("✅ Příspěvek úspěšně publikován přes instagrapi!")
+                return
+            except Exception as e:
+                print(f"⚠️ Instagrapi selhalo (pokus {attempt}/{max_retries}): {e}")
+                print("▶️ Zkouším záložní nahrání přes playwright...")
+                try:
+                    post_playwright(image_paths, description, two_factor_code)
+                    print("✅ Příspěvek úspěšně publikován přes playwright!")
+                    return
+                except Exception as play_e:
+                    print(f"❌ Playwright také selhal: {play_e}")
+                    raise Exception(f"Obě metody selhaly.")
         except Exception as e:
             print(f"❌ Chyba při publikaci (pokus {attempt}/{max_retries}): {e}")
             if attempt < max_retries:

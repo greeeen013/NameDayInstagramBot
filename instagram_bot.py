@@ -203,8 +203,8 @@ def post_album_to_instagram(image_paths, description):
             # Pokud vše proběhne bez chyby, ukončíme cyklus
             return
 
-        except ChallengeRequired:
-            print(f"⚠️ [insta_bot] Detekována ChallengeRequired (pokus {attempt}/{max_attempts}).")
+        except (ChallengeRequired, LoginRequired) as e:
+            print(f"⚠️ [insta_bot] Detekována chyba session ({type(e).__name__}) (pokus {attempt}/{max_attempts}).")
             print("🛑 Mažu poškozenou session, device a zkusím to znovu...")
             
             if SESSION_FILE.exists():
