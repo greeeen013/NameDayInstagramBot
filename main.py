@@ -311,20 +311,23 @@ def post_with_retry(image_paths: list, description: str, max_retries: int = 10, 
                 two_factor_code = None
                 print("⚠️ Chybí IG_2FA_SECRET, 2FA kód nebude zadán.")
 
+            # Playwright je primární metoda (spolehlivější než instagrapi)
+            # PLAYWRIGHT_HEADLESS=1 pro server bez displeje, jinak poběží viditelně
+            playwright_headless = os.getenv("PLAYWRIGHT_HEADLESS", "0") == "1"
             try:
-                print("▶️ Zkouším nahrát přes instagrapi...")
-                post_instagrapi(image_paths, description)
-                print("✅ Příspěvek úspěšně publikován přes instagrapi!")
+                print("▶️ Zkouším nahrát přes playwright...")
+                post_playwright(image_paths, description, two_factor_code, headless=playwright_headless)
+                print("✅ Příspěvek úspěšně publikován přes playwright!")
                 return
-            except Exception as e:
-                print(f"⚠️ Instagrapi selhalo (pokus {attempt}/{max_retries}): {e}")
-                print("▶️ Zkouším záložní nahrání přes playwright...")
+            except Exception as play_e:
+                print(f"⚠️ Playwright selhal (pokus {attempt}/{max_retries}): {play_e}")
+                print("▶️ Zkouším záložní nahrání přes instagrapi...")
                 try:
-                    post_playwright(image_paths, description, two_factor_code)
-                    print("✅ Příspěvek úspěšně publikován přes playwright!")
+                    post_instagrapi(image_paths, description)
+                    print("✅ Příspěvek úspěšně publikován přes instagrapi!")
                     return
-                except Exception as play_e:
-                    print(f"❌ Playwright také selhal: {play_e}")
+                except Exception as e:
+                    print(f"❌ Instagrapi také selhalo: {e}")
                     raise Exception(f"Obě metody selhaly.")
         except Exception as e:
             print(f"❌ Chyba při publikaci (pokus {attempt}/{max_retries}): {e}")
