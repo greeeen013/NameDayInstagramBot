@@ -10,7 +10,7 @@ def run(playwright: Playwright, images: list, caption: str, two_factor_code: str
     password = os.getenv("IG_PASSWORD")
     totp_secret = os.getenv("IG_2FA_SECRET")
 
-    browser = playwright.chromium.launch(headless=False)
+    browser = playwright.chromium.launch(headless=True)
     context = browser.new_context()
     page = context.new_page()
     try:
