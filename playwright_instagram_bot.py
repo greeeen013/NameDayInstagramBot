@@ -4,107 +4,96 @@ from playwright.sync_api import Playwright, sync_playwright, expect
 from dotenv import load_dotenv
 import pyotp
 
-def run(playwright: Playwright, images: list, caption: str, two_factor_code: str) -> None:
+def run(playwright: Playwright, images: list, caption: str, two_factor_code: str, headless: bool = True) -> None:
     load_dotenv()
     username = os.getenv("IG_USERNAME")
     password = os.getenv("IG_PASSWORD")
     totp_secret = os.getenv("IG_2FA_SECRET")
 
-    browser = playwright.chromium.launch(headless=True)
+    browser = playwright.chromium.launch(headless=headless)
     context = browser.new_context()
     page = context.new_page()
     try:
         print("🌍 [playwright] Přecházím na login stránku...")
         page.goto("https://www.instagram.com/accounts/login/")
-        page.wait_for_timeout(3000) # Počká 3 vteřiny
-        
-        try:
-            print("🍪 [playwright] Zkouším odkliknout cookies...")
-            page.locator("button:has-text('Allow all cookies'), button:has-text('Povolit všechny soubory cookie'), button:has-text('Povolit všechny')").first.click(timeout=5000)
-        except:
-            print("🍪 [playwright] Cookies banner nenalezen nebo timeout, pokračuji...")
-            
-        print("🔐 [playwright] Vyplňuji přihlašovací údaje...")
-        page.get_by_label("Číslo mobilu, uživatelské jméno nebo e-mail").click()
-        page.get_by_label("Číslo mobilu, uživatelské jméno nebo e-mail").fill(username)
-        page.get_by_label("Heslo").click()
-        page.get_by_label("Heslo").fill(password)
-        print("🔐 [playwright] Klikám na Log in / Odesílám formulář...")
-        try:
-            page.get_by_label("Heslo").press("Enter")
-        except:
-            page.locator("text='Přihlásit se'").first.click()
-            
-        print("⏳ [playwright] Čekám, jestli se objeví 2FA ověření...")
-        try:
-            # Zkusíme počkat na pole pro ověřovací kód (max 8 vteřin)
-            page.wait_for_selector('input[name="verificationCode"]', timeout=8000)
-            if totp_secret:
-                print("🔐 [playwright] Bylo vyžadováno 2FA. Generuji kód z IG_2FA_SECRET...")
-                totp = pyotp.TOTP(totp_secret.replace(" ", ""))
-                code = totp.now()
-                page.locator('input[name="verificationCode"]').fill(code)
-                print(f"🔑 [playwright] Zadán kód: {code}. Potvrzuji...")
-                page.locator('button:has-text("Potvrdit")').first.click()
-                page.wait_for_timeout(5000)
-            elif two_factor_code:
-                print("🔐 [playwright] Bylo vyžadováno 2FA. Používám kód z parametru two_factor_code...")
-                page.locator('input[name="verificationCode"]').fill(two_factor_code)
-                page.locator('button:has-text("Potvrdit")').first.click()
-                page.wait_for_timeout(5000)
-            else:
-                print("❌ [playwright] Bylo vyžadováno 2FA, ale nemám kód. Skript počká 30 vteřin pro manuální zadání.")
-                page.wait_for_timeout(30000)
-        except:
-            print("✅ [playwright] 2FA nebylo vyžadováno nebo se neukázalo pole pro kód, pokračuji dál...")
+        page.wait_for_load_state("networkidle")
 
+        print("🍪 [playwright] Zkouším odkliknout cookies...")
         try:
-            print("💾 [playwright] Zkouším odkliknout Save info...")
-            page.get_by_role("button", name="Save info").click(timeout=10000)
-        except:
+            page.get_by_role("button", name="Allow all cookies").click(timeout=5000)
+        except Exception:
+            print("  ➡️ Cookies dialog nenalezen nebo nevyžadován.")
+
+        print("🔐 [playwright] Vyplňuji přihlašovací údaje...")
+        page.get_by_role("textbox", name="Mobile number, username or").click()
+        page.get_by_role("textbox", name="Mobile number, username or").fill(username)
+        page.get_by_role("textbox", name="Password").click()
+        page.get_by_role("textbox", name="Password").fill(password)
+        page.get_by_role("button", name="Log in", exact=True).click()
+        
+        # Počkáme na načtení po loginu
+        page.wait_for_timeout(5000)
+
+        # 2FA
+        # 2FA
+        if totp_secret:
+            try:
+                print("🔐 [playwright] Detekován 2FA, zkouším zadat kód...")
+                totp = pyotp.TOTP(totp_secret)
+                code = two_factor_code if two_factor_code else totp.now()
+                page.get_by_role("textbox", name="Security code").click(timeout=5000)
+                page.get_by_role("textbox", name="Security code").fill(code)
+                page.get_by_role("button", name="Confirm").click()
+                page.wait_for_timeout(5000)
+            except Exception as e:
+                print(f"  ➡️ 2FA pole nenalezeno nebo nastala chyba: {e}")
+
+        # Odkliknutí "Not Now" dialogů
+        print("⏭️ [playwright] Odklikávám vyskakovací okna po přihlášení...")
+        try:
+            page.get_by_role("button", name="Not now").click(timeout=5000)
+        except Exception:
+            pass
+        try:
+            page.get_by_role("button", name="Not Now").click(timeout=5000)
+        except Exception:
             pass
 
+        # Vytvoření příspěvku
+        print("📸 [playwright] Začínám proces nahrávání fotky...")
+        page.get_by_role("link", name="New post Create").click()
         try:
-            print("➕ [playwright] Klikám na Nový příspěvek (Create)...")
-            page.locator('svg[aria-label="Nový příspěvek"], svg[aria-label="New post"]').first.click(timeout=15000)
-        except:
-             print("➕ [playwright] Fallback klikám na Nový příspěvek textem...")
-             page.locator("text='Nový příspěvek'").first.click()
-             
-        try:
-            print("➕ [playwright] Klikám na Příspěvek / Post v podmenu (pokud existuje)...")
-            page.locator("span:has-text('Příspěvek'), span:has-text('Post')").first.click(timeout=5000)
-        except:
-            print("➕ [playwright] Podmenu se neukázalo, asi to skočilo rovnou na výběr fotky...")
+            page.get_by_role("link", name="Post Post").click(timeout=3000)
+        except Exception:
+            pass
         
-        print("📁 [playwright] Vybírám soubory...")
-        # Počkáme trochu na zobrazení modalu pro výběr fotky
+        # Výběr souboru
         page.wait_for_timeout(2000)
-        
         with page.expect_file_chooser() as fc_info:
-            page.locator("button:has-text('Vybrat z počítače'), button:has-text('Select From Computer')").first.click()
+            page.get_by_role("button", name="Select From Computer").click()
         file_chooser = fc_info.value
         file_chooser.set_files(images)
-        
-        print("⏭️ [playwright] Klikám Další/Next 1...")
-        page.locator("button:has-text('Další'), div[role='button']:has-text('Další'), div[role='button']:has-text('Next'), button:has-text('Next')").first.click()
-        page.wait_for_timeout(2000)
+        print(f"✅ [playwright] Soubory vloženy: {images}")
 
-        print("⏭️ [playwright] Klikám Další/Next 2...")
-        page.locator("button:has-text('Další'), div[role='button']:has-text('Další'), div[role='button']:has-text('Next'), button:has-text('Next')").first.click()
+        # Další kroky
         page.wait_for_timeout(2000)
-        
+        page.get_by_role("button", name="Next").click()
+        page.wait_for_timeout(2000)
+        page.get_by_role("button", name="Next").click()
+
+        # Vyplnění popisku
         print("📝 [playwright] Vyplňuji popisek...")
-        page.locator('div[role="textbox"]').first.click()
-        page.locator('div[role="textbox"]').first.fill(caption)
+        page.wait_for_timeout(2000)
+        page.get_by_role("textbox", name="Write a caption...").click()
+        page.get_by_role("textbox", name="Write a caption...").fill(caption)
+
+        # Sdílení
+        print("🚀 [playwright] Klikám na Share...")
+        page.get_by_role("button", name="Share").click()
         
-        print("🚀 [playwright] Klikám na Sdílet/Share...")
-        page.locator("button:has-text('Sdílet'), div[role='button']:has-text('Sdílet'), div[role='button']:has-text('Share'), button:has-text('Share')").first.click()
-        
-        print("✅ [playwright] Post shared successfully (hopefully)!")
-        
-        # Wait a bit to ensure upload finishes
+        print("⏳ [playwright] Čekám na dokončení nahrávání...")
         page.wait_for_timeout(10000)
+        print("✅ [playwright] Příspěvek by měl být úspěšně publikován.")
     except Exception as e:
         print(f"❌ [playwright] Chyba během playwright skriptu: {e}")
         try:
@@ -120,6 +109,6 @@ def run(playwright: Playwright, images: list, caption: str, two_factor_code: str
         browser.close()
 
 
-def post_to_instagram(images: list, caption: str, two_factor_code: str) -> None:
+def post_to_instagram(images: list, caption: str, two_factor_code: str, headless: bool = True) -> None:
     with sync_playwright() as playwright:
-        run(playwright, images, caption, two_factor_code)
+        run(playwright, images, caption, two_factor_code, headless=headless)
