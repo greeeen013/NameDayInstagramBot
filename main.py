@@ -312,8 +312,14 @@ def post_with_retry(image_paths: list, description: str, max_retries: int = 10, 
                 print("⚠️ Chybí IG_2FA_SECRET, 2FA kód nebude zadán.")
 
             # Playwright je primární metoda (spolehlivější než instagrapi)
-            # PLAYWRIGHT_HEADLESS=1 pro server bez displeje, jinak poběží viditelně
-            playwright_headless = os.getenv("PLAYWRIGHT_HEADLESS", "0") == "1"
+            # Auto-detekce: pokud na Linuxu chybí $DISPLAY, musíme použít headless=True
+            import sys
+            has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+            if sys.platform.startswith("linux") and not has_display:
+                playwright_headless = True
+                print("🖥️ Server bez displeje – spouštím Playwright v headless módu.")
+            else:
+                playwright_headless = os.getenv("PLAYWRIGHT_HEADLESS", "0") == "1"
             try:
                 print("▶️ Zkouším nahrát přes playwright...")
                 post_playwright(image_paths, description, two_factor_code, headless=playwright_headless)
